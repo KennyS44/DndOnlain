@@ -154,6 +154,12 @@ export function reduce(s, a) {
 
     case 'chat.add':
       s.chat = [...s.chat, a.msg].slice(-300); break;
+    case 'chat.clear':
+      // 'roll' — только журнал бросков, 'chat' — разговор и служебные строки
+      s.chat = a.kind === 'roll'
+        ? s.chat.filter((m) => m.kind !== 'roll')
+        : s.chat.filter((m) => m.kind === 'roll');
+      break;
 
     case 'init.set':
       s.init = { ...s.init, order: a.order, idx: 0, round: 1 }; break;

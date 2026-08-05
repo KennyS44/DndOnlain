@@ -226,6 +226,7 @@ em{color:var(--muted); font-style:normal; font-size:14px}
 .lib-item.is-shown{border-color:var(--gold)}
 
 /* ── Чат и броски ────────────────────────────────────────────────── */
+.feed-tools{display:flex; justify-content:flex-end; padding-bottom:var(--s2)}
 .feed{flex:1; overflow:auto; display:flex; flex-direction:column; gap:var(--s2); padding-right:var(--s1)}
 .msg{background:var(--bg-2); border:1px solid var(--line-soft); border-radius:var(--r-sm); padding:var(--s2)}
 .msg .who{font-size:14px; color:var(--gold); margin-right:var(--s1)}

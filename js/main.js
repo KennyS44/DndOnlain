@@ -730,6 +730,17 @@ function wireDM() {
   });
   $('#pics-hide').addEventListener('click', () => app.store.dispatch({ t: 'pics.show', assetId: null }));
 
+  $('#chat-clear').addEventListener('click', () => {
+    if (!confirm('Очистить чат у всех за столом? Журнал бросков останется.')) return;
+    app.store.dispatch({ t: 'chat.clear', kind: 'chat' });
+    say('Мастер очистил чат', 'system');
+  });
+  $('#rolls-clear').addEventListener('click', () => {
+    if (!confirm('Очистить журнал бросков у всех за столом? Чат останется.')) return;
+    app.store.dispatch({ t: 'chat.clear', kind: 'roll' });
+    say('Мастер очистил журнал бросков', 'system');
+  });
+
   $('#init-roll-all').addEventListener('click', () => {
     const s = app.store.get();
     const order = Object.values(s.tokens)
