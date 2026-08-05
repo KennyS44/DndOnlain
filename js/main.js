@@ -470,9 +470,6 @@ function openTokenCard(t, screenPos) {
   const card = $('#token-card');
   card.innerHTML = '';
   card.hidden = false;
-  const wrap = $('#board-wrap').getBoundingClientRect();
-  card.style.left = Math.min(wrap.width - 262, Math.max(8, screenPos.x + 12)) + 'px';
-  card.style.top = Math.min(wrap.height - 260, Math.max(8, screenPos.y + 12)) + 'px';
 
   const close = el('button', 'icon-btn close', '×');
   close.addEventListener('click', () => { card.hidden = true; });
@@ -483,6 +480,7 @@ function openTokenCard(t, screenPos) {
     const info = el('div', 'hint',
       `${hpVisible ? `Хиты: ${t.hp.cur}/${t.hp.max}. ` : ''}${(t.statuses || []).join(', ') || 'Состояний нет'}`);
     card.append(info);
+    placeCard(card, screenPos);
     return;
   }
 
@@ -520,6 +518,32 @@ function openTokenCard(t, screenPos) {
   bDel.addEventListener('click', () => { app.store.dispatch({ t: 'token.remove', id: t.id }); card.hidden = true; });
   row.append(bInit, bDel);
   card.append(el('div', 'divider'), row);
+  placeCard(card, screenPos);
+}
+
+/**
+ * Ставим карточку рядом с фигуркой, но целиком внутри поля: меряем её
+ * настоящий размер и, если места справа/снизу нет, разворачиваем в другую сторону.
+ */
+function placeCard(card, at) {
+  const pad = 8, gap = 12;
+  const board = $('#board').getBoundingClientRect();      // куда нельзя вылезать
+  const host = (card.offsetParent || document.body).getBoundingClientRect();
+
+  card.style.maxHeight = (board.height - pad * 2) + 'px';
+  const w = card.offsetWidth, h = card.offsetHeight;
+  const px = board.left + at.x, py = board.top + at.y;    // фигурка в координатах окна
+
+  let left = px + gap;
+  if (left + w > board.right - pad) left = px - gap - w;  // не влезло справа — станем слева
+  left = Math.max(board.left + pad, Math.min(left, board.right - w - pad));
+
+  let top = py + gap;
+  if (top + h > board.bottom - pad) top = py - gap - h;   // не влезло снизу — станем выше
+  top = Math.max(board.top + pad, Math.min(top, board.bottom - h - pad));
+
+  card.style.left = Math.round(left - host.left) + 'px';
+  card.style.top = Math.round(top - host.top) + 'px';
 }
 
 const upd = (id, patch) => app.store.dispatch({ t: 'token.update', id, patch });

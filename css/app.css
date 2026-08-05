@@ -342,9 +342,10 @@ em{color:var(--muted); font-style:normal; font-size:14px}
 
 /* ── Карточка токена ─────────────────────────────────────────────── */
 .token-card{
-  position:absolute; z-index:25; width:250px; background:var(--panel);
-  border:1px solid var(--line); border-radius:var(--r); padding:var(--s3);
-  box-shadow:var(--shadow); animation:rise .2s var(--ease) both;
+  position:absolute; z-index:25; width:250px; max-width:calc(100% - 16px);
+  max-height:calc(100% - 16px); overflow:auto; overscroll-behavior:contain;
+  background:var(--panel); border:1px solid var(--line); border-radius:var(--r);
+  padding:var(--s3); box-shadow:var(--shadow); animation:rise .2s var(--ease) both;
 }
 .token-card h4{font-family:var(--f-head); font-size:16px; margin:0 0 var(--s2); color:var(--gold)}
 .token-card .field{margin-bottom:var(--s2)}

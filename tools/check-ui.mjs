@@ -227,6 +227,65 @@ R.участники.послеЗабыть = await dm.evaluate(() => ({
   кнопкаСкрыта: document.querySelector('#btn-forget-offline').hidden,
 }));
 
+/* 8. карточка фигурки не должна вылезать за поле — проверяем во всех углах */
+R.карточка = await (async () => {
+  // по углам холста, но ниже верхней панели зума — иначе клик попадёт в неё
+  const углы = { 'левый верх': [40, 110], 'правый верх': [-40, 110], 'левый низ': [40, -40], 'правый низ': [-40, -40] };
+  const out = {};
+  for (const [имя, [dx, dy]] of Object.entries(углы)) {
+    const b = await dm.locator('#board').boundingBox();
+    const x = dx > 0 ? dx : b.width + dx;
+    const y = dy > 0 ? dy : b.height + dy;
+    // ставим фигурку ровно в этот угол экрана и открываем карточку
+    await dm.evaluate(({ x, y }) => {
+      const w = window.__board().screenToWorld(x, y);
+      window.__dispatch({ t: 'token.update', id: 'враг', patch: { x: w.x, y: w.y } });
+    }, { x, y });
+    await dm.waitForTimeout(300);
+    await dm.mouse.dblclick(b.x + x, b.y + y);
+    await dm.waitForTimeout(400);
+    out[имя] = await dm.evaluate(() => {
+      const c = document.querySelector('#token-card').getBoundingClientRect();
+      const w = document.querySelector('#board').getBoundingClientRect();
+      return {
+        внутриПоля: c.left >= w.left - 1 && c.top >= w.top - 1
+          && c.right <= w.right + 1 && c.bottom <= w.bottom + 1,
+        высота: Math.round(c.height),
+      };
+    });
+  }
+  return out;
+})();
+
+/* и на телефоне 390px */
+const mob = await browser.newContext({ viewport: { width: 390, height: 780 }, isMobile: true, hasTouch: true });
+const mp = await mob.newPage(); watch(mp, 'MOB');
+await mp.goto(`${BASE}?${q({ r: ROOM, k: KEY, m: DMKEY })}`);
+await mp.fill('#join-form [name=name]', 'Мастер');
+await mp.click('#join-form button[type=submit]');
+await mp.waitForSelector('#app:not([hidden])', { timeout: 20000 });
+await mp.waitForTimeout(2500);
+await mp.evaluate(() => {
+  const t = Object.values(window.__state().tokens)[0];
+  const b = document.querySelector('#board').getBoundingClientRect();
+  const w = window.__board().screenToWorld(b.width - 30, b.height - 30);
+  window.__dispatch({ t: 'token.update', id: t.id, patch: { x: w.x, y: w.y } });
+});
+await mp.waitForTimeout(400);
+const mb = await mp.locator('#board').boundingBox();
+await mp.mouse.dblclick(mb.x + mb.width - 30, mb.y + mb.height - 30);
+await mp.waitForTimeout(500);
+R.карточкаНаТелефоне = await mp.evaluate(() => {
+  const c = document.querySelector('#token-card');
+  const r = c.getBoundingClientRect();
+  const w = document.querySelector('#board').getBoundingClientRect();
+  return {
+    внутриПоля: r.left >= w.left - 1 && r.top >= w.top - 1 && r.right <= w.right + 1 && r.bottom <= w.bottom + 1,
+    прокручивается: c.scrollHeight > c.clientHeight,
+  };
+});
+await mp.screenshot({ path: 'tools/shot-card-mobile.png' });
+
 R.errors = errors;
 console.log(JSON.stringify(R, null, 2));
 await browser.close();
