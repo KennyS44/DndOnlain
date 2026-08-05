@@ -148,7 +148,7 @@ function start(sync, state, me) {
   app.sync = sync;
   localStorage.setItem('dnd.last', JSON.stringify({ room: state.room.name, dm: app.isDM }));
   app.peers = [];
-  app.store = createStore(normalize(state), sync, onRemoteAction);
+  app.store = createStore(normalize(state), sync, onRemoteAction, canPersist);
 
   $('#gate').hidden = true;
   $('#app').hidden = false;
@@ -181,6 +181,7 @@ function start(sync, state, me) {
   window.__peers = () => app.sync.peers();
   window.__me = () => app.me;
   window.__ruler = () => app.board.ruler();
+  window.__stats = () => (app.sync.stats ? app.sync.stats() : null);
   wireUI();
   renderAll(app.store.get());
   app.board.fit();
@@ -189,6 +190,15 @@ function start(sync, state, me) {
 
 function onRemoteEvent(ev) {
   if (ev.type === 'asset') { app.board.invalidateAsset(ev.id); renderAll(app.store.get()); }
+}
+
+/** Снимок комнаты в базу пишет Мастер; если его нет — самый «старший» из игроков. */
+function canPersist() {
+  if (app.isDM) return true;
+  const peers = app.peers || [];
+  if (peers.some((p) => p.role === 'dm')) return false;
+  const ids = [...peers.map((p) => p.id), app.me.id].sort();
+  return ids[0] === app.me.id;
 }
 
 /** Чужой бросок прилетает тем же каналом, что и всё остальное, — анимацию видят все. */

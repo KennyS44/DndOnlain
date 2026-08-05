@@ -191,7 +191,7 @@ function deepMerge(base, patch) {
 }
 
 /** Мини-шина: хранит состояние, раздаёт подписчикам, шлёт действия в sync. */
-export function createStore(initial, sync, onRemote) {
+export function createStore(initial, sync, onRemote, canPersist) {
   let state = initial;
   const subs = new Set();
   const notify = () => subs.forEach((fn) => fn(state));
@@ -204,7 +204,8 @@ export function createStore(initial, sync, onRemote) {
 
   let dirty = false;
   function persist() {
-    if (dirty) return;
+    // снимок пишет кто-то один: 15 клиентов, льющих одно и то же, базе не нужны
+    if (dirty || (canPersist && !canPersist())) return;
     dirty = true;
     setTimeout(() => { dirty = false; sync.saveState(state, { name: state.room.name }); }, 0);
   }

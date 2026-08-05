@@ -29,7 +29,10 @@ export async function createFirebaseSync(roomPath, me, cfg) {
   const handlers = { action: [], event: [], presence: [] };
   const emitLocal = (type, payload) => handlers[type].forEach((fn) => fn(payload));
   let saveTimer = null;
+  let dirtySince = 0;
   let peers = [];
+  // счётчики трафика — видно, кто и сколько льёт в базу
+  const stats = { actionsSent: 0, actionsGot: 0, stateWrites: 0, bytesSent: 0, bytesGot: 0 };
 
   // всё, что было до нашего прихода, пропускаем: ключи push упорядочены по времени
   const lastKey = async (path) => {
@@ -44,6 +47,8 @@ export async function createFirebaseSync(roomPath, me, cfg) {
     if (snap.key <= afterAction) return;
     const v = snap.val();
     if (!v || v.from === me.id) return;
+    stats.actionsGot++;
+    stats.bytesGot += JSON.stringify(v).length;
     emitLocal('action', v.a);
   });
 
@@ -78,8 +83,13 @@ export async function createFirebaseSync(roomPath, me, cfg) {
     mode: 'firebase',
     on(type, fn) { handlers[type].push(fn); },
 
+    stats: () => ({ ...stats }),
+
     send(a) {
-      db.push(R('actions'), { from: me.id, ts: Date.now(), a: clean(a) });
+      const row = { from: me.id, ts: Date.now(), a: clean(a) };
+      stats.actionsSent++;
+      stats.bytesSent += JSON.stringify(row).length;
+      db.push(R('actions'), row);
       if (Math.random() < 0.05) prune();
     },
     emit(e) {
@@ -92,8 +102,17 @@ export async function createFirebaseSync(roomPath, me, cfg) {
       return snap.exists() ? snap.val() : null;
     },
     saveState(state) {
+      // при непрерывной возне откладывать бесконечно нельзя — пишем хотя бы раз в 6 секунд
+      if (!dirtySince) dirtySince = Date.now();
+      const overdue = Date.now() - dirtySince > 6000;
       clearTimeout(saveTimer);
-      saveTimer = setTimeout(() => db.set(R('state'), clean(state)), 900);
+      saveTimer = setTimeout(() => {
+        dirtySince = 0;
+        const payload = clean(state);
+        stats.stateWrites++;
+        stats.bytesSent += JSON.stringify(payload).length;
+        db.set(R('state'), payload);
+      }, overdue ? 0 : 900);
     },
 
     async putAsset(id, dataUrl) {
