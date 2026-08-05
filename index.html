@@ -79,7 +79,8 @@
     </div>
 
     <div class="toolbar" id="toolbar">
-      <button class="tool is-active" data-tool="select" title="Выбор и перемещение">✥</button>
+      <button class="tool is-active" data-tool="select" title="Двигать фигурки и карту">✥</button>
+      <button class="tool" data-tool="token" title="Только фигурки — карта стоит на месте">♟</button>
       <button class="tool" data-tool="ruler" title="Линейка">📏</button>
       <button class="tool" data-tool="draw" title="Рисование">✎</button>
       <button class="tool dm-only" data-tool="fog" title="Кисть тумана">☁</button>
@@ -101,25 +102,35 @@
         <button class="tab" data-ltab="room">Комната</button>
       </div>
 
-      <section class="panel-body" data-lpanel="locations">
+      <section class="panel-body panel-flex" data-lpanel="locations">
         <button class="btn btn-soft w-full" id="btn-add-location">+ Новая локация</button>
-        <div class="list" id="locations-list"></div>
-        <div class="divider"></div>
-        <h3 class="h-sm">Настройки поля</h3>
-        <label class="field field-row"><span>Клетка, px</span><input type="number" id="grid-size" min="10" max="400" step="1"></label>
-        <label class="field field-row"><span>Сдвиг X</span><input type="number" id="grid-ox" step="1"></label>
-        <label class="field field-row"><span>Сдвиг Y</span><input type="number" id="grid-oy" step="1"></label>
-        <label class="field field-row"><span>Футов в клетке</span><input type="number" id="grid-feet" min="1" max="100" step="1"></label>
-        <label class="check"><input type="checkbox" id="grid-show"><span>Показывать сетку</span></label>
-        <div class="divider"></div>
-        <h3 class="h-sm">Туман войны</h3>
-        <label class="check"><input type="checkbox" id="fog-on"><span>Включить туман</span></label>
-        <label class="field field-row"><span>Кисть, клеток</span><input type="number" id="fog-brush" min="1" max="12" step="1" value="2"></label>
-        <div class="row-2">
-          <button class="btn btn-soft" id="fog-reveal-all">Открыть всё</button>
-          <button class="btn btn-soft" id="fog-hide-all">Закрыть всё</button>
+        <div class="list list-scroll" id="locations-list"></div>
+
+        <div class="settings-stack">
+          <details class="fold" data-fold="grid">
+            <summary>Настройки поля</summary>
+            <div class="fold-body">
+              <label class="field field-row"><span>Клетка, px</span><input type="number" id="grid-size" min="10" max="400" step="1"></label>
+              <label class="field field-row"><span>Сдвиг X</span><input type="number" id="grid-ox" step="1"></label>
+              <label class="field field-row"><span>Сдвиг Y</span><input type="number" id="grid-oy" step="1"></label>
+              <label class="field field-row"><span>Футов в клетке</span><input type="number" id="grid-feet" min="1" max="100" step="1"></label>
+              <label class="check"><input type="checkbox" id="grid-show"><span>Показывать сетку</span></label>
+            </div>
+          </details>
+
+          <details class="fold" data-fold="fog">
+            <summary>Туман войны</summary>
+            <div class="fold-body">
+              <label class="check"><input type="checkbox" id="fog-on"><span>Включить туман</span></label>
+              <label class="field field-row"><span>Кисть, клеток</span><input type="number" id="fog-brush" min="1" max="12" step="1" value="2"></label>
+              <div class="row-2">
+                <button class="btn btn-soft" id="fog-reveal-all">Открыть всё</button>
+                <button class="btn btn-soft" id="fog-hide-all">Закрыть всё</button>
+              </div>
+              <p class="hint">С Alt/правой кнопкой кисть закрывает обратно.</p>
+            </div>
+          </details>
         </div>
-        <p class="hint">С Alt/правой кнопкой кисть закрывает обратно.</p>
       </section>
 
       <section class="panel-body" data-lpanel="library" hidden>
@@ -191,9 +202,14 @@
 
       <!-- Доска картинок -->
       <div class="showcase" id="showcase" hidden>
+        <div class="showcase-bar">
+          <span class="showcase-label" id="showcase-label">Картинка от Мастера</span>
+          <button class="btn btn-sm btn-soft" id="showcase-close">Свернуть</button>
+          <button class="btn btn-sm btn-soft dm-only" id="showcase-off">Убрать у всех</button>
+        </div>
         <img id="showcase-img" alt="Изображение от Мастера">
-        <button class="icon-btn showcase-close" id="showcase-close" title="Свернуть">×</button>
       </div>
+      <button class="showcase-chip" id="showcase-chip" hidden>🖼 Картинка от Мастера</button>
 
       <div class="empty-hint" id="empty-hint" hidden>
         <p>Поле пусто. Мастер, создайте локацию и загрузите карту.</p>
@@ -233,6 +249,7 @@
 
       <section class="panel-body dm-only" data-rpanel="pics" hidden>
         <label class="btn btn-soft w-full file-btn">+ Загрузить картинки<input type="file" id="pics-upload" accept="image/*" multiple hidden></label>
+        <p class="hint">Клик по картинке — показать всем за столом. Клик по ней же — убрать.</p>
         <div class="lib-grid" id="pics-grid"></div>
         <button class="btn btn-soft w-full" id="pics-hide">Убрать с экрана игроков</button>
       </section>

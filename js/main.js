@@ -48,6 +48,14 @@ if (invite) {
   $('.gate-sub').innerHTML = `Комната «${esc(invite.room)}»<br>вы входите как <b>${invite.dm ? 'Мастер' : 'игрок'}</b>`;
   const saved = localStorage.getItem('dnd.name');
   if (saved) jf.name.value = saved;
+
+  // Сами возвращаемся за стол только если это та же комната и та же роль,
+  // что и в прошлый раз, — иначе можно молча войти под чужим именем.
+  let last = null;
+  try { last = JSON.parse(localStorage.getItem('dnd.last') || 'null'); } catch { /* пусто */ }
+  if (saved && last && last.room === invite.room && last.dm === !!invite.dm) {
+    setTimeout(() => jf.requestSubmit(), 60);
+  }
 }
 
 $('.gate-note').textContent = useFirebase
@@ -138,6 +146,7 @@ function start(sync, state, me) {
   app.me = me;
   app.isDM = me.role === 'dm';
   app.sync = sync;
+  localStorage.setItem('dnd.last', JSON.stringify({ room: state.room.name, dm: app.isDM }));
   app.peers = [];
   app.store = createStore(normalize(state), sync, onRemoteAction);
 
@@ -156,6 +165,7 @@ function start(sync, state, me) {
     onViewChange: (v) => { $('#zoom-val').textContent = Math.round(v.scale * 100) + '%'; },
   });
 
+  const firstTime = !app.store.get().roster[nameKey(me.name)];
   app.store.dispatch({
     t: 'roster.seen',
     member: { key: nameKey(me.name), id: me.id, name: me.name, role: me.role },
@@ -170,10 +180,11 @@ function start(sync, state, me) {
   window.__board = () => app.board;
   window.__peers = () => app.sync.peers();
   window.__me = () => app.me;
+  window.__ruler = () => app.board.ruler();
   wireUI();
   renderAll(app.store.get());
   app.board.fit();
-  say(`${me.name} за столом (${app.isDM ? 'Мастер' : 'игрок'})`, 'system');
+  if (firstTime) say(`${me.name} за столом (${app.isDM ? 'Мастер' : 'игрок'})`, 'system');
 }
 
 function onRemoteEvent(ev) {
@@ -395,9 +406,13 @@ function renderPics(s) {
 
 let showcaseHiddenFor = null;
 function updateShowcase(s) {
-  const box = $('#showcase'), img = $('#showcase-img');
+  const box = $('#showcase'), img = $('#showcase-img'), chip = $('#showcase-chip');
   const id = s.pics.shown;
-  if (!id || showcaseHiddenFor === id) { box.hidden = true; return; }
+  if (!id) { box.hidden = true; chip.hidden = true; showcaseHiddenFor = null; return; }
+  $('#showcase-label').textContent = app.isDM
+    ? 'Эту картинку сейчас видят игроки' : 'Картинка от Мастера';
+  if (showcaseHiddenFor === id) { box.hidden = true; chip.hidden = false; return; }
+  chip.hidden = true;
   app.sync.getAsset(id).then((u) => { if (u) { img.src = u; box.hidden = false; } });
 }
 
@@ -624,7 +639,20 @@ function wireUI() {
   // картинки на общий экран
   $('#showcase-close').addEventListener('click', () => {
     showcaseHiddenFor = app.store.get().pics.shown;
-    $('#showcase').hidden = true;
+    updateShowcase(app.store.get());
+  });
+  $('#showcase-chip').addEventListener('click', () => {
+    showcaseHiddenFor = null;
+    updateShowcase(app.store.get());
+  });
+  const off = $('#showcase-off');
+  if (off) off.addEventListener('click', () => app.store.dispatch({ t: 'pics.show', assetId: null }));
+
+  // складные блоки настроек помнят, открыты они или нет
+  $$('.fold').forEach((f) => {
+    const key = 'dnd.fold.' + f.dataset.fold;
+    f.open = localStorage.getItem(key) === '1';
+    f.addEventListener('toggle', () => localStorage.setItem(key, f.open ? '1' : '0'));
   });
 
   // мобильные панели

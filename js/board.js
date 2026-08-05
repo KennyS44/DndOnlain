@@ -250,31 +250,43 @@ export function createBoard(opts) {
 
   function labelFeet(a, b, rPx) {
     const ft = Math.round((rPx / view.scale) * feetPerPx());
-    ctx.globalAlpha = 1; ctx.font = '12px Inter, sans-serif'; ctx.textAlign = 'center';
-    ctx.fillText(ft + ' фт', a.x, a.y - 6);
+    chip(ft + ' фт', a.x, a.y - 18);
+  }
+
+  /** Настоящее расстояние по прямой: диагональ длиннее стороны клетки. */
+  function rulerReadout() {
+    const g = gridOf();
+    const cells = Math.hypot(ruler.b.x - ruler.a.x, ruler.b.y - ruler.a.y) / g.size;
+    return { cells, feet: Math.round(cells * g.feet) };
   }
 
   function drawRuler() {
     const a = w2s(ruler.a.x, ruler.a.y), b = w2s(ruler.b.x, ruler.b.y);
-    const g = gridOf();
-    const dxc = (ruler.b.x - ruler.a.x) / g.size, dyc = (ruler.b.y - ruler.a.y) / g.size;
-    // по правилам D&D 5e диагональ считается как обычный шаг
-    const cells = Math.max(Math.abs(dxc), Math.abs(dyc));
-    const feet = Math.round(cells * g.feet);
+    const { cells, feet } = rulerReadout();
     ctx.save();
     ctx.setLineDash([8, 6]); ctx.lineWidth = 2; ctx.strokeStyle = '#c9a45a';
     ctx.beginPath(); ctx.moveTo(a.x, a.y); ctx.lineTo(b.x, b.y); ctx.stroke();
     ctx.setLineDash([]);
     [a, b].forEach((p) => { ctx.beginPath(); ctx.arc(p.x, p.y, 4, 0, Math.PI * 2); ctx.fillStyle = '#c9a45a'; ctx.fill(); });
     const mx = (a.x + b.x) / 2, my = (a.y + b.y) / 2;
-    const txt = `${feet} фт · ${Math.round(cells)} кл`;
-    ctx.font = '14px Inter, sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-    const tw = ctx.measureText(txt).width;
-    ctx.fillStyle = 'rgba(23,22,19,.88)';
-    ctx.fillRect(mx - tw / 2 - 8, my - 14, tw + 16, 26);
+    chip(`${feet} фт · ${cells.toFixed(1)} кл`, mx, my);
+    ctx.restore();
+  }
+
+  /** Подпись на тёмной плашке — читается на любом рисунке и на любой карте. */
+  function chip(text, x, y) {
+    ctx.save();
+    ctx.globalAlpha = 1;
+    ctx.font = '14px Inter, sans-serif';
+    ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    const w = ctx.measureText(text).width;
+    ctx.fillStyle = 'rgba(23,22,19,.9)';
     ctx.strokeStyle = '#38332b'; ctx.lineWidth = 1;
-    ctx.strokeRect(mx - tw / 2 - 8, my - 14, tw + 16, 26);
-    ctx.fillStyle = '#ece6d9'; ctx.fillText(txt, mx, my);
+    ctx.beginPath();
+    ctx.roundRect(x - w / 2 - 8, y - 13, w + 16, 26, 6);
+    ctx.fill(); ctx.stroke();
+    ctx.fillStyle = '#ece6d9';
+    ctx.fillText(text, x, y);
     ctx.restore();
   }
 
@@ -349,13 +361,14 @@ export function createBoard(opts) {
     const w = s2w(p.x, p.y);
     const mid = e.button === 1 || e.shiftKey;
 
-    if (tool === 'select' && !mid) {
+    // режим «только фигурки»: карта на месте, тянуть можно лишь существ
+    if ((tool === 'select' || tool === 'token') && !mid) {
       const t = tokenAt(w.x, w.y);
       if (t && canMove(t)) {
         drag = { type: 'token', id: t.id, dx: t.x - w.x, dy: t.y - w.y, moved: false };
         return;
       }
-      if (t) { drag = { type: 'pan', from: p, view: { ...view } }; return; }
+      if (t || tool === 'token') { drag = { type: 'tap', at: p, id: t && t.id }; return; }
     }
     if (tool === 'ruler' && !mid) {
       ruler = { a: w, b: w };
@@ -383,7 +396,7 @@ export function createBoard(opts) {
     const w = s2w(p.x, p.y);
 
     if (!drag) {
-      const t = tool === 'select' ? tokenAt(w.x, w.y) : null;
+      const t = (tool === 'select' || tool === 'token') ? tokenAt(w.x, w.y) : null;
       const id = t ? t.id : null;
       if (id !== hoverId) { hoverId = id; render(); }
       return;
@@ -432,6 +445,9 @@ export function createBoard(opts) {
         store.dispatch({ t: 'token.update', id: drag.id, patch: { x: c.x, y: c.y } });
         if (!drag.moved) onTokenOpen && onTokenOpen(t, evPos(e));
       }
+    } else if (drag.type === 'tap') {
+      const t = drag.id && S().tokens[drag.id];
+      if (t) onTokenOpen && onTokenOpen(t, evPos(e));
     } else if (drag.type === 'draw' && preview) {
       if (preview.pts.length >= 2) {
         store.dispatch({ t: 'draw.add', locId: loc().id, stroke: { ...preview, id: 'd' + Date.now() + Math.random().toString(36).slice(2, 5) } });
@@ -513,6 +529,7 @@ export function createBoard(opts) {
   const api = {
     render, resize,
     view: () => view,
+    ruler: () => ruler && rulerReadout(),
     setTool(t) {
       tool = t; ruler = null;
       canvas.className = t === 'select' ? '' : 'is-' + t;
