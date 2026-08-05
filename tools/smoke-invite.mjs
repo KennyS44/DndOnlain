@@ -4,7 +4,7 @@ import { chromium } from 'playwright-chromium';
 import { roomFingerprint } from '../js/sync-firebase.js';
 import { FIREBASE } from '../js/firebase-config.js';
 
-const BASE = 'http://127.0.0.1:20300/index.html';
+const BASE = process.env.BASE_URL || 'http://127.0.0.1:20300/index.html';
 const ROOM = 'Ссылка ' + process.pid;
 const KEY = 'pk' + process.pid;
 const DMKEY = 'dk' + process.pid;
