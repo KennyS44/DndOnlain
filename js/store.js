@@ -19,6 +19,37 @@ export function emptyState(room) {
   };
 }
 
+/** База (и импорт) не хранит пустые объекты и массивы — восстанавливаем форму. */
+export function normalize(raw) {
+  const s = { ...emptyState({ name: '' }), ...(raw || {}) };
+  s.room = { ...s.room, ...(raw && raw.room) };
+  s.roster = s.roster || {};
+  s.order = s.order || [];
+  s.chat = s.chat || [];
+  s.library = s.library || {};
+  s.locations = s.locations || {};
+  s.tokens = s.tokens || {};
+  s.pics = { assets: [], shown: null, ...(s.pics || {}) };
+  s.pics.assets = s.pics.assets || [];
+  s.init = { order: [], idx: 0, round: 1, ...(s.init || {}) };
+  s.init.order = s.init.order || [];
+
+  Object.values(s.locations).forEach((l) => {
+    l.grid = { size: 70, ox: 0, oy: 0, feet: 5, show: true, ...(l.grid || {}) };
+    l.fog = l.fog || {};
+    l.drawings = (l.drawings || []).map((d) => ({ ...d, pts: d.pts || [] }));
+  });
+  Object.values(s.tokens).forEach((t) => {
+    t.hp = { cur: 0, max: 0, ...(t.hp || {}) };
+    t.statuses = t.statuses || [];
+    t.vision = t.vision || 0;
+    t.cells = t.cells || 1;
+  });
+  s.order = s.order.filter((id) => s.locations[id]);
+  if (!s.locations[s.activeLoc]) s.activeLoc = s.order[0] || null;
+  return s;
+}
+
 export function newLocation(name) {
   return {
     id: uid('loc'), name,

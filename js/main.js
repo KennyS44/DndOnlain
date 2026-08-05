@@ -1,8 +1,8 @@
 // Сборка приложения: вход в комнату, панели, поле, кубики, чат.
 
 import { createSync } from './sync.js';
-import { idb } from './idb.js';
-import { createStore, emptyState, newLocation, newToken, uid, STATUSES } from './store.js';
+import { FIREBASE, useFirebase } from './firebase-config.js';
+import { createStore, emptyState, newLocation, newToken, normalize, uid, STATUSES } from './store.js';
 import { createBoard } from './board.js';
 import { DICE, roll, playAnimation } from './dice.js';
 
@@ -27,49 +27,86 @@ function myId() {
 }
 const slug = (s) => s.trim().toLowerCase().replace(/\s+/g, '-').replace(/[^\wа-яё-]/gi, '').slice(0, 40);
 
+$('.gate-note').textContent = useFirebase
+  ? 'Комната живёт в облаке: заходите с любого устройства, всё сохраняется между встречами.'
+  : 'Пока работает локальная синхронизация (вкладки одного браузера). Подключим Firebase — заработает между устройствами.';
+
 $$('[data-gate-tab]').forEach((b) => b.addEventListener('click', () => {
   $$('[data-gate-tab]').forEach((x) => x.classList.toggle('is-active', x === b));
   $$('[data-gate-panel]').forEach((p) => { p.hidden = p.dataset.gatePanel !== b.dataset.gateTab; });
 }));
 
+/** Путь комнаты: в облаке он содержит отпечаток ключа, локально — просто название. */
+async function roomPath(name, key) {
+  const id = slug(name);
+  if (!useFirebase) return id;
+  const { roomFingerprint } = await import('./sync-firebase.js');
+  return id + '-' + roomFingerprint(id, key);
+}
+
+async function makeSync(path, me) {
+  if (!useFirebase) return createSync(path, me);
+  const { createFirebaseSync } = await import('./sync-firebase.js');
+  return createFirebaseSync(path, me, FIREBASE);
+}
+
 $('#create-form').addEventListener('submit', async (e) => {
   e.preventDefault();
   const f = new FormData(e.target);
-  const roomId = slug(f.get('room'));
   const err = $('#create-err');
-  if (!roomId) return fail(err, 'Название комнаты не подходит');
-  const exists = await idb.getRoom(roomId);
-  if (exists) return fail(err, 'Комната с таким названием уже есть — войдите в неё');
-  const st = emptyState({ name: f.get('room').trim(), playerKey: f.get('key'), dmKey: f.get('dmkey') });
-  await idb.putRoom(roomId, { id: roomId, name: st.room.name, savedAt: Date.now(), state: st });
-  start(roomId, { id: myId(), name: f.get('name').trim(), role: 'dm' });
+  const name = f.get('room').trim();
+  if (!slug(name)) return fail(err, 'Название комнаты не подходит');
+  busy(e.target, true);
+  try {
+    const me = { id: myId(), name: f.get('name').trim(), role: 'dm' };
+    const sync = await makeSync(await roomPath(name, f.get('key')), me);
+    if (await sync.loadState()) return fail(err, 'Комната с таким названием и ключом уже есть — войдите в неё');
+    const st = emptyState({ name, playerKey: f.get('key'), dmKey: f.get('dmkey') });
+    sync.saveState(st, { name });
+    start(sync, st, me);
+  } catch (ex) {
+    fail(err, 'Не удалось открыть комнату: ' + ex.message);
+  } finally { busy(e.target, false); }
 });
 
 $('#join-form').addEventListener('submit', async (e) => {
   e.preventDefault();
   const f = new FormData(e.target);
-  const roomId = slug(f.get('room'));
   const err = $('#join-err');
-  const row = await idb.getRoom(roomId);
-  if (!row) return fail(err, 'Комната не найдена. Мастер должен создать её.');
+  const key = f.get('key');
   const dmkey = (f.get('dmkey') || '').trim();
-  const isDM = dmkey && dmkey === row.state.room.dmKey;
-  if (!isDM && f.get('key') !== row.state.room.playerKey) return fail(err, 'Неверный ключ комнаты');
-  if (dmkey && !isDM) return fail(err, 'Неверный ключ Мастера');
-  start(roomId, { id: myId(), name: f.get('name').trim(), role: isDM ? 'dm' : 'player' });
+  busy(e.target, true);
+  try {
+    const me = { id: myId(), name: f.get('name').trim(), role: 'player' };
+    const sync = await makeSync(await roomPath(f.get('room'), key), me);
+    const st = await sync.loadState();
+    if (!st) return fail(err, 'Комната не найдена — проверьте название и ключ');
+    if (!useFirebase && key !== st.room.playerKey) return fail(err, 'Неверный ключ комнаты');
+    if (dmkey) {
+      if (dmkey !== st.room.dmKey) return fail(err, 'Неверный ключ Мастера');
+      me.role = 'dm';
+    }
+    start(sync, st, me);
+  } catch (ex) {
+    fail(err, 'Не удалось войти: ' + ex.message);
+  } finally { busy(e.target, false); }
 });
 
 function fail(el, msg) { el.textContent = msg; el.hidden = false; }
+function busy(form, on) {
+  const b = form.querySelector('button[type=submit]');
+  if (!b.dataset.label) b.dataset.label = b.textContent;
+  b.disabled = on;
+  b.textContent = on ? 'Подключаемся…' : b.dataset.label;
+}
 
 /* ───────────────────────── Запуск стола ───────────────────────── */
 
-async function start(roomId, me) {
+function start(sync, state, me) {
   app.me = me;
   app.isDM = me.role === 'dm';
-  app.sync = await createSync(roomId, me);
-
-  const saved = await app.sync.loadState();
-  app.store = createStore(saved || emptyState({ name: roomId }), app.sync);
+  app.sync = sync;
+  app.store = createStore(normalize(state), sync);
 
   $('#gate').hidden = true;
   $('#app').hidden = false;
@@ -603,6 +640,10 @@ function wireDM() {
   const s0 = app.store.get();
   $('#key-player').value = s0.room.playerKey || '';
   $('#key-dm').value = s0.room.dmKey || '';
+  if (useFirebase) {
+    $('#key-player').disabled = true;
+    $('#key-player').closest('.field').append(el('span', 'hint', 'Ключ игроков задан при создании комнаты и не меняется.'));
+  }
   $('#btn-save-keys').addEventListener('click', () => {
     app.store.dispatch({ t: 'room.keys', patch: { playerKey: $('#key-player').value, dmKey: $('#key-dm').value } });
     say('Ключи комнаты изменены', 'system');
@@ -649,7 +690,7 @@ async function importCampaign(e) {
   if (!confirm('Импорт заменит текущую комнату. Продолжить?')) { e.target.value = ''; return; }
   const data = JSON.parse(await file.text());
   for (const [id, url] of Object.entries(data.assets || {})) if (url) await app.sync.putAsset(id, url);
-  app.store.dispatch({ t: 'state.replace', state: data.state });
+  app.store.dispatch({ t: 'state.replace', state: normalize(data.state) });
   e.target.value = '';
   setTimeout(() => app.board.fit(), 100);
 }
