@@ -219,9 +219,34 @@ await dm.click('[data-ltab="room"]');
 await dm.waitForTimeout(300);
 R.участники.вСпискеКомнатыОстался = await dm.evaluate(() =>
   [...document.querySelectorAll('#members-list .name')].map((n) => n.textContent));
+// список «кому принадлежит» тоже не должен помнить вышедших
+const списокВладельцев = async (tid) => {
+  await dm.evaluate(() => { document.querySelector('#token-card').hidden = true; });
+  const pos = await dm.evaluate((id) => {
+    const t = window.__state().tokens[id];
+    return window.__board().worldToScreen(t.x, t.y);
+  }, tid);
+  const b = await dm.locator('#board').boundingBox();
+  await dm.mouse.dblclick(b.x + pos.x, b.y + pos.y);
+  await dm.waitForTimeout(400);
+  return dm.evaluate(() => ({
+    заголовок: document.querySelector('#token-card h4')?.textContent,
+    варианты: [...document.querySelectorAll('#token-card select option')].map((o) => o.text),
+    владелец: Object.values(window.__state().tokens).find((t) => t.id === 'враг')?.ownerName,
+    ростер: Object.entries(window.__state().roster).map(([k, m]) => `${k}:${m.name}`),
+  }));
+};
+R.участники.владельцыБезФигурки = await списокВладельцев('враг');
+await dm.evaluate(() => window.__dispatch({ t: 'token.update', id: 'враг', patch: { ownerName: 'Торин' } }));
+await dm.waitForTimeout(500);
+R.участники.владельцыКогдаФигуркаЕго = await списокВладельцев('враг');
+await dm.evaluate(() => window.__dispatch({ t: 'token.update', id: 'враг', patch: { ownerName: null } }));
+await dm.click('[data-ltab="room"]');
+await dm.waitForTimeout(300);
 dm.once('dialog', (d) => d.accept());
 await dm.click('#btn-forget-offline');
 await dm.waitForTimeout(1000);
+
 R.участники.послеЗабыть = await dm.evaluate(() => ({
   список: [...document.querySelectorAll('#members-list .name')].map((n) => n.textContent),
   кнопкаСкрыта: document.querySelector('#btn-forget-offline').hidden,

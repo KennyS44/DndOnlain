@@ -495,7 +495,8 @@ function openTokenCard(t, screenPos) {
 
   const sel = el('select', 'sel');
   sel.append(new Option('— ничей —', ''));
-  const people = participants();
+  // только те, кто сейчас за столом; вышедший остаётся, если фигурка уже его
+  const people = participants().filter((m) => m.online || nameKey(t.ownerName) === m.key);
   people.forEach((m) => {
     const o = new Option(m.name + (m.role === 'dm' ? ' (Мастер)' : '') + (m.online ? '' : ' — не в сети'), m.key);
     if (nameKey(t.ownerName) === m.key) o.selected = true;
