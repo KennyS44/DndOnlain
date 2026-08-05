@@ -47,15 +47,7 @@ if (invite) {
   $$('.field', jf).forEach((f, i) => { if (i > 0) f.hidden = true; });
   $('.gate-sub').innerHTML = `Комната «${esc(invite.room)}»<br>вы входите как <b>${invite.dm ? 'Мастер' : 'игрок'}</b>`;
   const saved = localStorage.getItem('dnd.name');
-  if (saved) jf.name.value = saved;
-
-  // Сами возвращаемся за стол только если это та же комната и та же роль,
-  // что и в прошлый раз, — иначе можно молча войти под чужим именем.
-  let last = null;
-  try { last = JSON.parse(localStorage.getItem('dnd.last') || 'null'); } catch { /* пусто */ }
-  if (saved && last && last.room === invite.room && last.dm === !!invite.dm) {
-    setTimeout(() => jf.requestSubmit(), 60);
-  }
+  if (saved) jf.name.value = saved;   // имя подставлено, вход — по кнопке
 }
 
 $('.gate-note').textContent = useFirebase
@@ -146,7 +138,6 @@ function start(sync, state, me) {
   app.me = me;
   app.isDM = me.role === 'dm';
   app.sync = sync;
-  localStorage.setItem('dnd.last', JSON.stringify({ room: state.room.name, dm: app.isDM }));
   app.peers = [];
   app.store = createStore(normalize(state), sync, onRemoteAction, canPersist);
 

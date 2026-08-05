@@ -64,6 +64,8 @@ await dm.click('.fold[data-fold="grid"] summary');
 await dm.waitForTimeout(200);
 R.folds.открылся = await dm.evaluate(() => document.querySelector('.fold[data-fold="grid"]').open);
 await dm.reload();
+R.folds.послеПерезагрузкиСпрашиваетИмя = await dm.evaluate(() => !document.querySelector('#gate').hidden);
+await dm.click('#join-form button[type=submit]');   // имя подставлено, входим сами
 await dm.waitForSelector('#app:not([hidden])', { timeout: 20000 });
 await dm.waitForTimeout(1500);
 R.folds.запомнилПослеПерезагрузки = await dm.evaluate(() => document.querySelector('.fold[data-fold="grid"]').open);
