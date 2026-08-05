@@ -1,0 +1,260 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>DndOnlain — стол для игры</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@500;600&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="css/app.css">
+</head>
+<body>
+
+<!-- ───────────────────────── Вход в комнату ───────────────────────── -->
+<div id="gate" class="gate">
+  <div class="gate-card">
+    <h1 class="gate-title">DndOnlain</h1>
+    <p class="gate-sub">Общий стол для игры. Комната закрыта ключом.</p>
+
+    <div class="tabs" role="tablist">
+      <button class="tab is-active" data-gate-tab="join">Войти</button>
+      <button class="tab" data-gate-tab="create">Создать комнату</button>
+    </div>
+
+    <form id="join-form" class="gate-form" data-gate-panel="join">
+      <label class="field">
+        <span>Ваше имя</span>
+        <input name="name" required maxlength="24" autocomplete="off" placeholder="Торин">
+      </label>
+      <label class="field">
+        <span>Название комнаты</span>
+        <input name="room" required maxlength="32" autocomplete="off" placeholder="Проклятие Страда">
+      </label>
+      <label class="field">
+        <span>Ключ комнаты</span>
+        <input name="key" required type="password" autocomplete="off" placeholder="••••••">
+      </label>
+      <label class="field">
+        <span>Ключ Мастера <em>(необязательно)</em></span>
+        <input name="dmkey" type="password" autocomplete="off" placeholder="только для Мастера">
+      </label>
+      <button class="btn btn-primary" type="submit">Войти за стол</button>
+      <p class="gate-err" id="join-err" hidden></p>
+    </form>
+
+    <form id="create-form" class="gate-form" data-gate-panel="create" hidden>
+      <label class="field">
+        <span>Ваше имя (Мастер)</span>
+        <input name="name" required maxlength="24" autocomplete="off" placeholder="Мастер">
+      </label>
+      <label class="field">
+        <span>Название комнаты</span>
+        <input name="room" required maxlength="32" autocomplete="off" placeholder="Проклятие Страда">
+      </label>
+      <label class="field">
+        <span>Ключ для игроков</span>
+        <input name="key" required type="password" minlength="3" autocomplete="off">
+      </label>
+      <label class="field">
+        <span>Ключ Мастера</span>
+        <input name="dmkey" required type="password" minlength="3" autocomplete="off">
+      </label>
+      <button class="btn btn-primary" type="submit">Открыть стол</button>
+      <p class="gate-err" id="create-err" hidden></p>
+    </form>
+
+    <p class="gate-note">Пока работает локальная синхронизация (вкладки одного браузера). Подключим Firebase — заработает между устройствами.</p>
+  </div>
+</div>
+
+<!-- ───────────────────────── Стол ───────────────────────── -->
+<div id="app" class="app" hidden>
+
+  <header class="topbar">
+    <div class="topbar-left">
+      <span class="brand">DndOnlain</span>
+      <span class="room-name" id="room-name"></span>
+      <span class="badge" id="role-badge"></span>
+    </div>
+
+    <div class="toolbar" id="toolbar">
+      <button class="tool is-active" data-tool="select" title="Выбор и перемещение">✥</button>
+      <button class="tool" data-tool="ruler" title="Линейка">📏</button>
+      <button class="tool" data-tool="draw" title="Рисование">✎</button>
+      <button class="tool dm-only" data-tool="fog" title="Кисть тумана">☁</button>
+    </div>
+
+    <div class="topbar-right">
+      <button class="btn btn-ghost" id="btn-dice">Кубики</button>
+      <button class="btn btn-ghost only-mobile" id="btn-panel">Панели</button>
+      <span class="members" id="members"></span>
+    </div>
+  </header>
+
+  <main class="stage">
+    <!-- Левая панель: Мастер -->
+    <aside class="panel panel-left dm-only" id="panel-left">
+      <div class="tabs tabs-sm">
+        <button class="tab is-active" data-ltab="locations">Локации</button>
+        <button class="tab" data-ltab="library">Иконки</button>
+        <button class="tab" data-ltab="room">Комната</button>
+      </div>
+
+      <section class="panel-body" data-lpanel="locations">
+        <button class="btn btn-soft w-full" id="btn-add-location">+ Новая локация</button>
+        <div class="list" id="locations-list"></div>
+        <div class="divider"></div>
+        <h3 class="h-sm">Настройки поля</h3>
+        <label class="field field-row"><span>Клетка, px</span><input type="number" id="grid-size" min="10" max="400" step="1"></label>
+        <label class="field field-row"><span>Сдвиг X</span><input type="number" id="grid-ox" step="1"></label>
+        <label class="field field-row"><span>Сдвиг Y</span><input type="number" id="grid-oy" step="1"></label>
+        <label class="field field-row"><span>Футов в клетке</span><input type="number" id="grid-feet" min="1" max="100" step="1"></label>
+        <label class="check"><input type="checkbox" id="grid-show"><span>Показывать сетку</span></label>
+        <div class="divider"></div>
+        <h3 class="h-sm">Туман войны</h3>
+        <label class="check"><input type="checkbox" id="fog-on"><span>Включить туман</span></label>
+        <label class="field field-row"><span>Кисть, клеток</span><input type="number" id="fog-brush" min="1" max="12" step="1" value="2"></label>
+        <div class="row-2">
+          <button class="btn btn-soft" id="fog-reveal-all">Открыть всё</button>
+          <button class="btn btn-soft" id="fog-hide-all">Закрыть всё</button>
+        </div>
+        <p class="hint">С Alt/правой кнопкой кисть закрывает обратно.</p>
+      </section>
+
+      <section class="panel-body" data-lpanel="library" hidden>
+        <div class="row-2">
+          <label class="btn btn-soft file-btn">+ Иконки<input type="file" id="lib-upload" accept="image/*" multiple hidden></label>
+          <select id="lib-kind" class="sel">
+            <option value="pc">Персонаж</option>
+            <option value="npc">НПС</option>
+            <option value="enemy">Враг</option>
+          </select>
+        </div>
+        <div class="lib-filter tabs tabs-sm">
+          <button class="tab is-active" data-libfilter="all">Все</button>
+          <button class="tab" data-libfilter="pc">Герои</button>
+          <button class="tab" data-libfilter="npc">НПС</button>
+          <button class="tab" data-libfilter="enemy">Враги</button>
+        </div>
+        <div class="lib-grid" id="lib-grid"></div>
+        <p class="hint">Перетащите иконку на поле или кликните дважды.</p>
+      </section>
+
+      <section class="panel-body" data-lpanel="room" hidden>
+        <h3 class="h-sm">За столом</h3>
+        <div class="list" id="members-list"></div>
+        <div class="divider"></div>
+        <h3 class="h-sm">Ключи</h3>
+        <label class="field"><span>Ключ игроков</span><input id="key-player" type="text" autocomplete="off"></label>
+        <label class="field"><span>Ключ Мастера</span><input id="key-dm" type="text" autocomplete="off"></label>
+        <button class="btn btn-soft w-full" id="btn-save-keys">Сохранить ключи</button>
+        <div class="divider"></div>
+        <h3 class="h-sm">Кампания</h3>
+        <div class="row-2">
+          <button class="btn btn-soft" id="btn-export">Экспорт</button>
+          <label class="btn btn-soft file-btn">Импорт<input type="file" id="btn-import" accept="application/json" hidden></label>
+        </div>
+        <p class="hint">Сейв включает локации, токены, иконки и журнал.</p>
+      </section>
+    </aside>
+
+    <!-- Поле -->
+    <div class="board-wrap" id="board-wrap">
+      <canvas id="board"></canvas>
+
+      <div class="board-hud">
+        <div class="loc-title" id="loc-title"></div>
+        <div class="zoom">
+          <button class="icon-btn" id="zoom-out">−</button>
+          <span id="zoom-val">100%</span>
+          <button class="icon-btn" id="zoom-in">+</button>
+          <button class="icon-btn" id="zoom-fit" title="Вписать">⤢</button>
+        </div>
+      </div>
+
+      <!-- Инструменты рисования -->
+      <div class="draw-bar" id="draw-bar" hidden>
+        <div class="swatches" id="draw-colors"></div>
+        <div class="shapes" id="draw-shapes"></div>
+        <label class="field field-row slim"><span>Толщина</span><input type="range" id="draw-width" min="2" max="14" value="4"></label>
+        <button class="btn btn-soft btn-sm" id="draw-clear">Стереть мои</button>
+      </div>
+
+      <!-- Доска картинок -->
+      <div class="showcase" id="showcase" hidden>
+        <img id="showcase-img" alt="Изображение от Мастера">
+        <button class="icon-btn showcase-close" id="showcase-close" title="Свернуть">×</button>
+      </div>
+
+      <div class="empty-hint" id="empty-hint" hidden>
+        <p>Поле пусто. Мастер, создайте локацию и загрузите карту.</p>
+      </div>
+    </div>
+
+    <!-- Правая панель -->
+    <aside class="panel panel-right" id="panel-right">
+      <div class="tabs tabs-sm">
+        <button class="tab is-active" data-rtab="chat">Чат</button>
+        <button class="tab" data-rtab="rolls">Броски</button>
+        <button class="tab" data-rtab="init">Ход боя</button>
+        <button class="tab dm-only" data-rtab="pics">Картинки</button>
+      </div>
+
+      <section class="panel-body panel-flex" data-rpanel="chat">
+        <div class="feed" id="chat-feed"></div>
+        <form class="composer" id="chat-form">
+          <input id="chat-input" placeholder="Сказать за столом…" maxlength="500" autocomplete="off">
+          <button class="btn btn-primary btn-sm" type="submit">↵</button>
+        </form>
+      </section>
+
+      <section class="panel-body panel-flex" data-rpanel="rolls" hidden>
+        <div class="feed" id="rolls-feed"></div>
+      </section>
+
+      <section class="panel-body" data-rpanel="init" hidden>
+        <div class="row-2">
+          <button class="btn btn-soft btn-sm dm-only" id="init-roll-all">Бросить всем</button>
+          <button class="btn btn-soft btn-sm dm-only" id="init-next">Следующий ход →</button>
+        </div>
+        <div class="round-line" id="round-line"></div>
+        <div class="init-list" id="init-list"></div>
+        <p class="hint">Здоровье и состояния — под именем существа.</p>
+      </section>
+
+      <section class="panel-body dm-only" data-rpanel="pics" hidden>
+        <label class="btn btn-soft w-full file-btn">+ Загрузить картинки<input type="file" id="pics-upload" accept="image/*" multiple hidden></label>
+        <div class="lib-grid" id="pics-grid"></div>
+        <button class="btn btn-soft w-full" id="pics-hide">Убрать с экрана игроков</button>
+      </section>
+    </aside>
+  </main>
+
+  <!-- Кубики -->
+  <div class="dice-tray" id="dice-tray" hidden>
+    <div class="dice-tray-head">
+      <div class="tabs tabs-sm">
+        <button class="tab is-active" data-dicemode="open">Обычный бросок</button>
+        <button class="tab dm-only" data-dicemode="secret">Тайный бросок</button>
+      </div>
+      <button class="icon-btn" id="dice-close">×</button>
+    </div>
+    <div class="dice-row" id="dice-buttons"></div>
+    <div class="dice-row dice-mods">
+      <label class="field field-row slim"><span>Кол-во</span><input type="number" id="dice-count" min="1" max="20" value="1"></label>
+      <label class="field field-row slim"><span>Модиф.</span><input type="number" id="dice-mod" value="0"></label>
+      <label class="check"><input type="checkbox" id="dice-adv"><span>С преим.</span></label>
+    </div>
+    <p class="hint" id="dice-hint">Бросок видят все за столом.</p>
+  </div>
+
+  <div class="dice-stage" id="dice-stage" aria-live="polite"></div>
+
+  <!-- Карточка токена -->
+  <div class="token-card" id="token-card" hidden></div>
+</div>
+
+<script type="module" src="js/main.js"></script>
+</body>
+</html>

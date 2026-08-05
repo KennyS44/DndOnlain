@@ -1,0 +1,323 @@
+/* ── Основа: приглушённый Journeyman ─────────────────────────────── */
+:root{
+  --bg:#171613;
+  --bg-2:#1e1c18;
+  --panel:#22201b;
+  --panel-2:#2a2721;
+  --line:#38332b;
+  --line-soft:#2f2b24;
+  --text:#ece6d9;
+  --muted:#a49a87;
+  --gold:#c9a45a;
+  --gold-dim:#8d7440;
+  --ink:#141310;
+  --danger:#b8604a;
+  --ok:#83a05f;
+
+  --s1:4px; --s2:8px; --s3:12px; --s4:16px; --s6:24px; --s8:32px;
+  --r:10px; --r-sm:6px;
+  --f-head:"Cinzel", Georgia, serif;
+  --f-body:"Inter", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --ease:cubic-bezier(.2,.7,.3,1);
+  --shadow:0 8px 28px rgba(0,0,0,.45);
+}
+
+*{box-sizing:border-box}
+[hidden]{display:none !important}
+html,body{height:100%}
+body{
+  margin:0; background:var(--bg); color:var(--text);
+  font-family:var(--f-body); font-size:16px; line-height:1.5;
+  -webkit-font-smoothing:antialiased; overflow:hidden;
+}
+h1,h2,h3{font-family:var(--f-head); font-weight:600; margin:0; letter-spacing:.01em}
+button,input,select{font-family:inherit; font-size:16px; color:inherit}
+em{color:var(--muted); font-style:normal; font-size:14px}
+
+/* ── Общие элементы ──────────────────────────────────────────────── */
+.btn{
+  display:inline-flex; align-items:center; justify-content:center; gap:var(--s2);
+  min-height:44px; padding:0 var(--s4); border-radius:var(--r-sm);
+  border:1px solid var(--line); background:var(--panel-2); color:var(--text);
+  cursor:pointer; transition:background .18s var(--ease), border-color .18s var(--ease), transform .12s var(--ease);
+}
+.btn:hover{background:#332f27; border-color:var(--gold-dim)}
+.btn:active{transform:translateY(1px)}
+.btn-primary{background:linear-gradient(180deg,#c9a45a,#a9863f); color:var(--ink); border-color:#8d7440; font-weight:600}
+.btn-primary:hover{background:linear-gradient(180deg,#d6b26a,#b5924a)}
+.btn-ghost{background:transparent}
+.btn-soft{background:var(--panel-2)}
+.btn-sm{min-height:36px; padding:0 var(--s3); font-size:14px}
+.w-full{width:100%}
+.icon-btn{
+  width:36px; height:36px; min-width:36px; display:inline-flex; align-items:center; justify-content:center;
+  border-radius:var(--r-sm); border:1px solid var(--line); background:var(--panel-2); color:var(--text); cursor:pointer;
+  transition:background .18s var(--ease);
+}
+.icon-btn:hover{background:#332f27}
+.row-2{display:grid; grid-template-columns:1fr 1fr; gap:var(--s2)}
+.divider{height:1px; background:var(--line-soft); margin:var(--s4) 0}
+.hint{color:var(--muted); font-size:14px; margin:var(--s2) 0 0}
+.h-sm{font-size:16px; color:var(--gold); margin-bottom:var(--s2)}
+
+.field{display:flex; flex-direction:column; gap:var(--s1); margin-bottom:var(--s3)}
+.field > span{font-size:14px; color:var(--muted)}
+.field input, .sel{
+  min-height:44px; padding:0 var(--s3); border-radius:var(--r-sm);
+  border:1px solid var(--line); background:var(--bg-2); color:var(--text); width:100%;
+}
+.field input:focus, .sel:focus{outline:2px solid var(--gold-dim); outline-offset:1px}
+.field-row{flex-direction:row; align-items:center; justify-content:space-between; gap:var(--s2)}
+.field-row input{max-width:110px}
+.field-row.slim{margin-bottom:0}
+.check{display:flex; align-items:center; gap:var(--s2); min-height:44px; font-size:14px; color:var(--muted); cursor:pointer}
+.check input{width:18px; height:18px; accent-color:var(--gold)}
+.file-btn{position:relative; cursor:pointer}
+
+.tabs{display:flex; gap:var(--s1); background:var(--bg-2); padding:var(--s1); border-radius:var(--r-sm); border:1px solid var(--line-soft)}
+.tab{
+  flex:1; min-height:40px; padding:0 var(--s1); border:0; border-radius:var(--r-sm); white-space:nowrap;
+  background:transparent; color:var(--muted); cursor:pointer; font-size:14px;
+  transition:background .18s var(--ease), color .18s var(--ease);
+}
+.tab:hover{color:var(--text)}
+.tab.is-active{background:var(--panel-2); color:var(--gold)}
+.tabs-sm .tab{min-height:36px}
+
+/* ── Вход ────────────────────────────────────────────────────────── */
+.gate{
+  position:fixed; inset:0; z-index:50; display:grid; place-items:center; padding:var(--s4);
+  background:radial-gradient(1200px 600px at 50% -10%, #2a2620, var(--bg));
+  overflow:auto;
+}
+.gate-card{
+  width:100%; max-width:420px; background:var(--panel); border:1px solid var(--line);
+  border-radius:var(--r); padding:var(--s6); box-shadow:var(--shadow);
+  animation:rise .45s var(--ease) both;
+}
+@keyframes rise{from{opacity:0; transform:translateY(12px)} to{opacity:1; transform:none}}
+.gate-title{font-size:32px; color:var(--gold); text-align:center}
+.gate-sub{color:var(--muted); text-align:center; font-size:14px; margin:var(--s2) 0 var(--s6)}
+.gate-form{margin-top:var(--s4)}
+.gate-form .btn{width:100%; margin-top:var(--s2)}
+.gate-note{color:var(--muted); font-size:14px; margin:var(--s4) 0 0; text-align:center}
+.gate-err{color:var(--danger); font-size:14px; margin:var(--s2) 0 0}
+
+/* ── Каркас ──────────────────────────────────────────────────────── */
+.app{display:flex; flex-direction:column; height:100dvh; position:relative}
+.topbar{
+  display:flex; align-items:center; gap:var(--s3); padding:var(--s2) var(--s3);
+  background:var(--panel); border-bottom:1px solid var(--line); flex-wrap:wrap;
+}
+.topbar-left,.topbar-right{display:flex; align-items:center; gap:var(--s2); min-width:0}
+.topbar-right{margin-left:auto}
+.brand{font-family:var(--f-head); color:var(--gold); font-size:20px}
+.room-name{color:var(--muted); font-size:14px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; max-width:26vw}
+.badge{
+  font-size:14px; padding:2px var(--s2); border-radius:999px;
+  border:1px solid var(--gold-dim); color:var(--gold);
+}
+.members{display:flex; gap:var(--s1)}
+.dot{width:24px; height:24px; border-radius:50%; display:grid; place-items:center; font-size:14px; color:var(--ink); font-weight:600}
+
+.toolbar{display:flex; gap:var(--s1); background:var(--bg-2); padding:var(--s1); border-radius:var(--r-sm)}
+.tool{
+  width:44px; height:44px; border:0; border-radius:var(--r-sm); background:transparent;
+  color:var(--muted); font-size:20px; cursor:pointer; transition:background .18s var(--ease), color .18s var(--ease);
+}
+.tool:hover{color:var(--text)}
+.tool.is-active{background:var(--panel-2); color:var(--gold)}
+
+.stage{flex:1; display:flex; min-height:0}
+.panel{
+  width:300px; flex:0 0 300px; background:var(--panel); border-right:1px solid var(--line);
+  display:flex; flex-direction:column; min-height:0; padding:var(--s3);
+}
+.panel-right{border-right:0; border-left:1px solid var(--line); width:320px; flex-basis:320px}
+.panel-body{padding-top:var(--s3); overflow:auto; min-height:0}
+.panel-flex{display:flex; flex-direction:column; flex:1}
+
+/* ── Поле ────────────────────────────────────────────────────────── */
+.board-wrap{position:relative; flex:1; min-width:0; background:
+  repeating-linear-gradient(45deg,#1b1a16 0 12px,#1d1b17 12px 24px);
+  overflow:hidden; touch-action:none}
+#board{display:block; width:100%; height:100%; cursor:grab}
+#board.is-drag{cursor:grabbing}
+#board.is-ruler,#board.is-draw,#board.is-fog{cursor:crosshair}
+
+.board-hud{
+  position:absolute; top:var(--s3); left:var(--s3); right:var(--s3);
+  display:flex; align-items:center; gap:var(--s2); pointer-events:none;
+}
+.loc-title{
+  font-family:var(--f-head); font-size:20px; color:var(--text);
+  background:rgba(23,22,19,.72); padding:var(--s1) var(--s3); border-radius:var(--r-sm);
+  border:1px solid var(--line-soft); backdrop-filter:blur(4px);
+}
+.zoom{
+  margin-left:auto; display:flex; align-items:center; gap:var(--s1); pointer-events:auto;
+  background:rgba(23,22,19,.72); padding:var(--s1); border-radius:var(--r-sm); border:1px solid var(--line-soft);
+  font-size:14px; color:var(--muted); backdrop-filter:blur(4px);
+}
+.zoom span{min-width:52px; text-align:center}
+
+.empty-hint{position:absolute; inset:0; display:grid; place-items:center; color:var(--muted); pointer-events:none; padding:var(--s6); text-align:center}
+
+.draw-bar{
+  position:absolute; left:50%; bottom:var(--s4); transform:translateX(-50%);
+  display:flex; align-items:center; gap:var(--s3); flex-wrap:wrap; justify-content:center;
+  background:rgba(30,28,24,.94); border:1px solid var(--line); border-radius:var(--r);
+  padding:var(--s2) var(--s3); box-shadow:var(--shadow); max-width:calc(100% - 24px);
+  animation:rise .25s var(--ease) both;
+}
+.swatches,.shapes{display:flex; gap:var(--s1); flex-wrap:wrap}
+.swatch{width:28px; height:28px; border-radius:50%; border:2px solid transparent; cursor:pointer}
+.swatch.is-active{border-color:var(--text)}
+.shape{
+  min-width:40px; height:36px; border-radius:var(--r-sm); border:1px solid var(--line);
+  background:var(--panel-2); color:var(--muted); cursor:pointer; font-size:14px; padding:0 var(--s2);
+}
+.shape.is-active{color:var(--gold); border-color:var(--gold-dim)}
+.draw-bar .field-row span{white-space:nowrap}
+.draw-bar input[type=range]{width:90px; accent-color:var(--gold)}
+
+/* ── Списки, библиотека ──────────────────────────────────────────── */
+.list{display:flex; flex-direction:column; gap:var(--s1)}
+.list-item{
+  display:flex; align-items:center; gap:var(--s2); padding:var(--s2);
+  border:1px solid var(--line-soft); border-radius:var(--r-sm); background:var(--bg-2);
+  cursor:pointer; transition:border-color .18s var(--ease), background .18s var(--ease);
+}
+.list-item:hover{border-color:var(--gold-dim)}
+.list-item.is-active{border-color:var(--gold); background:var(--panel-2)}
+.list-item .name{flex:1; font-size:14px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap}
+.list-item .thumb{width:40px; height:32px; object-fit:cover; border-radius:4px; background:var(--panel-2)}
+.mini{border:0; background:transparent; color:var(--muted); cursor:pointer; font-size:14px; padding:var(--s1)}
+.mini:hover{color:var(--gold)}
+
+.lib-grid{display:grid; grid-template-columns:repeat(auto-fill,minmax(64px,1fr)); gap:var(--s2); margin-top:var(--s3)}
+.lib-item{position:relative; border:1px solid var(--line-soft); border-radius:var(--r-sm); overflow:hidden; background:var(--bg-2); cursor:grab}
+.lib-item img{width:100%; aspect-ratio:1; object-fit:cover; display:block}
+.lib-item .cap{font-size:14px; padding:2px var(--s1); color:var(--muted); overflow:hidden; text-overflow:ellipsis; white-space:nowrap}
+.lib-item .del{position:absolute; top:2px; right:2px; background:rgba(20,19,16,.8); border:0; color:var(--muted); border-radius:4px; cursor:pointer; width:22px; height:22px}
+.lib-item .del:hover{color:var(--danger)}
+.lib-item.is-shown{border-color:var(--gold)}
+
+/* ── Чат и броски ────────────────────────────────────────────────── */
+.feed{flex:1; overflow:auto; display:flex; flex-direction:column; gap:var(--s2); padding-right:var(--s1)}
+.msg{background:var(--bg-2); border:1px solid var(--line-soft); border-radius:var(--r-sm); padding:var(--s2)}
+.msg .who{font-size:14px; color:var(--gold); margin-right:var(--s1)}
+.msg .time{font-size:14px; color:var(--muted); float:right}
+.msg .body{font-size:16px; overflow-wrap:anywhere}
+.msg.system{border-style:dashed}
+.msg.system .body{color:var(--muted); font-size:14px}
+.msg.roll .body{font-family:var(--f-head)}
+.msg.roll .total{color:var(--gold); font-size:20px}
+.msg.secret{border-color:var(--gold-dim); background:#241f18}
+.composer{display:flex; gap:var(--s2); margin-top:var(--s3)}
+.composer input{flex:1; min-height:44px; padding:0 var(--s3); border-radius:var(--r-sm); border:1px solid var(--line); background:var(--bg-2); color:var(--text)}
+
+/* ── Инициатива ──────────────────────────────────────────────────── */
+.round-line{color:var(--muted); font-size:14px; margin:var(--s3) 0 var(--s2)}
+.init-list{display:flex; flex-direction:column; gap:var(--s2)}
+.init-item{border:1px solid var(--line-soft); border-radius:var(--r-sm); background:var(--bg-2); padding:var(--s2)}
+.init-item.is-turn{border-color:var(--gold); box-shadow:inset 3px 0 0 var(--gold)}
+.init-head{display:flex; align-items:center; gap:var(--s2)}
+.init-head img{width:32px; height:32px; border-radius:50%; object-fit:cover}
+.init-head .nm{flex:1; font-size:14px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap}
+.init-head .iv{color:var(--gold); font-family:var(--f-head)}
+.hp-bar{height:6px; border-radius:3px; background:#3a2f2a; margin-top:var(--s2); overflow:hidden}
+.hp-fill{height:100%; background:linear-gradient(90deg,#7f9a5c,#a8bd6f); transition:width .3s var(--ease)}
+.hp-row{display:flex; align-items:center; gap:var(--s1); margin-top:var(--s1); font-size:14px; color:var(--muted)}
+.hp-row input{width:52px; min-height:32px; padding:0 var(--s1); background:var(--panel-2); border:1px solid var(--line); border-radius:4px; color:var(--text); font-size:14px}
+.status-row{display:flex; gap:var(--s1); flex-wrap:wrap; margin-top:var(--s1)}
+.status{font-size:14px; padding:0 var(--s2); border-radius:999px; border:1px solid var(--line); color:var(--muted); background:var(--panel-2); cursor:pointer}
+.status.on{color:var(--gold); border-color:var(--gold-dim)}
+
+/* ── Кубики ──────────────────────────────────────────────────────── */
+.dice-tray{
+  position:absolute; right:340px; bottom:var(--s4); z-index:20; width:320px;
+  background:var(--panel); border:1px solid var(--line); border-radius:var(--r);
+  padding:var(--s3); box-shadow:var(--shadow); animation:rise .25s var(--ease) both;
+}
+.dice-tray-head{display:flex; align-items:center; gap:var(--s2); margin-bottom:var(--s3)}
+.dice-tray-head .tabs{flex:1}
+.dice-row{display:flex; gap:var(--s2); flex-wrap:wrap}
+.dice-mods{margin-top:var(--s3); align-items:center}
+.die-btn{
+  flex:1 0 60px; min-height:44px; border-radius:var(--r-sm); border:1px solid var(--line);
+  background:var(--panel-2); color:var(--text); cursor:pointer; font-family:var(--f-head);
+  transition:border-color .18s var(--ease), background .18s var(--ease);
+}
+.die-btn:hover{border-color:var(--gold); background:#332f27}
+
+.dice-stage{position:fixed; inset:0; pointer-events:none; z-index:40; perspective:900px}
+.die3d{
+  position:absolute; width:84px; height:84px; transform-style:preserve-3d;
+  animation:fly 1.15s var(--ease) forwards;
+}
+.die3d .face{
+  position:absolute; inset:0; display:grid; place-items:center;
+  background:linear-gradient(160deg,#2f2a22,#413828); border:1px solid var(--gold-dim);
+  border-radius:12px; color:var(--gold); font-family:var(--f-head); font-size:32px;
+  box-shadow:0 0 24px rgba(201,164,90,.18);
+}
+.die3d .f1{transform:translateZ(42px)}
+.die3d .f2{transform:rotateY(90deg) translateZ(42px)}
+.die3d .f3{transform:rotateY(180deg) translateZ(42px)}
+.die3d .f4{transform:rotateY(-90deg) translateZ(42px)}
+.die3d .f5{transform:rotateX(90deg) translateZ(42px)}
+.die3d .f6{transform:rotateX(-90deg) translateZ(42px)}
+@keyframes fly{
+  0%{opacity:0; transform:translate(var(--fx),110vh) rotateX(0) rotateY(0) scale(.7)}
+  12%{opacity:1}
+  70%{transform:translate(calc(var(--fx)*.2),-40px) rotateX(720deg) rotateY(540deg) scale(1.05)}
+  100%{opacity:1; transform:translate(0,0) rotateX(1080deg) rotateY(720deg) scale(1)}
+}
+.die-throw{position:fixed; inset:0}
+.die-result{
+  position:absolute; left:50%; transform:translate(-50%,-50%);
+  display:flex; flex-direction:column; align-items:center; gap:var(--s2);
+}
+.die-result .caption{
+  font-size:14px; color:var(--muted); background:rgba(23,22,19,.8);
+  padding:var(--s1) var(--s3); border-radius:999px; border:1px solid var(--line-soft);
+}
+.die-result .total-big{font-family:var(--f-head); font-size:32px; color:var(--gold)}
+@keyframes fade-out{to{opacity:0; transform:translate(-50%,-60%) scale(.9)}}
+
+/* ── Доска картинок ──────────────────────────────────────────────── */
+.showcase{
+  position:absolute; inset:0; display:grid; place-items:center; z-index:15;
+  background:rgba(15,14,12,.9); padding:var(--s6); animation:rise .3s var(--ease) both;
+}
+.showcase img{max-width:100%; max-height:100%; object-fit:contain; border-radius:var(--r); border:1px solid var(--line)}
+.showcase-close{position:absolute; top:var(--s3); right:var(--s3)}
+
+/* ── Карточка токена ─────────────────────────────────────────────── */
+.token-card{
+  position:absolute; z-index:25; width:250px; background:var(--panel);
+  border:1px solid var(--line); border-radius:var(--r); padding:var(--s3);
+  box-shadow:var(--shadow); animation:rise .2s var(--ease) both;
+}
+.token-card h4{font-family:var(--f-head); font-size:16px; margin:0 0 var(--s2); color:var(--gold)}
+.token-card .field{margin-bottom:var(--s2)}
+.token-card .close{position:absolute; top:var(--s1); right:var(--s1)}
+
+.only-mobile{display:none}
+
+/* ── Телефон ─────────────────────────────────────────────────────── */
+@media (max-width:900px){
+  .panel{
+    position:absolute; z-index:30; inset:auto 0 0 0; width:100%; flex-basis:auto;
+    height:62dvh; border:1px solid var(--line); border-radius:var(--r) var(--r) 0 0;
+    transform:translateY(100%); transition:transform .3s var(--ease); box-shadow:var(--shadow);
+  }
+  .panel.is-open{transform:none}
+  .stage{position:relative}
+  .only-mobile{display:inline-flex}
+  .room-name{max-width:34vw}
+  .dice-tray{right:var(--s3); left:var(--s3); width:auto; bottom:var(--s3)}
+  .topbar{padding:var(--s2)}
+  .toolbar{order:3; width:100%; justify-content:center}
+}
