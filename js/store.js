@@ -82,6 +82,12 @@ export function reduce(s, a) {
     case 'room.keys':
       s.room = { ...s.room, ...a.patch }; break;
 
+    case 'roster.forget': {
+      const next = { ...s.roster };
+      a.keys.forEach((k) => delete next[k]);
+      s.roster = next;
+      break;
+    }
     case 'roster.seen':
       // ключ — имя: один человек остаётся собой после перезахода и с другого устройства
       s.roster = { ...s.roster, [a.member.key || a.member.id]: a.member }; break;

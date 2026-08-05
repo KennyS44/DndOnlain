@@ -421,9 +421,11 @@ function updateShowcase(s) {
 function participants() {
   const out = new Map();
   Object.values(app.store.get().roster).forEach((m) => {
-    out.set(nameKey(m.name), { ...m, online: false });
+    out.set(nameKey(m.name), { ...m, key: nameKey(m.name), online: false });
   });
-  (app.peers || []).forEach((p) => {
+  // «в сети» — только свежие отметки: браузер мог закрыться без прощания
+  const fresh = Date.now() - 60000;
+  (app.peers || []).filter((p) => !p.at || p.at > fresh).forEach((p) => {
     const k = nameKey(p.name);
     out.set(k, { ...(out.get(k) || {}), key: k, id: p.id, name: p.name, role: p.role, online: true });
   });
@@ -431,24 +433,34 @@ function participants() {
 }
 
 function renderMembers() {
+  const all = participants();
+  // Значки сверху — только те, кто сейчас за столом: вышел, значок пропал.
   const box = $('#members');
   box.innerHTML = '';
-  participants().forEach((p) => {
+  all.filter((p) => p.online).forEach((p) => {
     const d = el('span', 'dot', (p.name || '?').slice(0, 1).toUpperCase());
     d.style.background = p.role === 'dm' ? 'var(--gold)' : '#7fa8c9';
-    d.style.opacity = p.online ? '1' : '.4';
-    d.title = p.name + (p.role === 'dm' ? ' — Мастер' : '') + (p.online ? '' : ' (не в сети)');
+    d.title = p.name + (p.role === 'dm' ? ' — Мастер' : '');
     box.append(d);
   });
+
   const ml = $('#members-list');
   if (ml) {
     ml.innerHTML = '';
-    participants().forEach((m) => {
+    all.forEach((m) => {
       const row = el('div', 'list-item');
       row.append(el('span', 'name', m.name + (m.role === 'dm' ? ' — Мастер' : '')));
       row.append(el('span', 'badge', m.online ? 'в сети' : 'нет'));
+      if (!m.online) {
+        const del = el('button', 'mini', '×');
+        del.title = 'Забыть этого участника';
+        del.addEventListener('click', () => app.store.dispatch({ t: 'roster.forget', keys: [m.key] }));
+        row.append(del);
+      }
       ml.append(row);
     });
+    const offline = all.filter((m) => !m.online);
+    $('#btn-forget-offline').hidden = !offline.length;
   }
 }
 
@@ -731,6 +743,13 @@ function wireDM() {
     e.target.value = '';
   });
   $('#pics-hide').addEventListener('click', () => app.store.dispatch({ t: 'pics.show', assetId: null }));
+
+  $('#btn-forget-offline').addEventListener('click', () => {
+    const keys = participants().filter((m) => !m.online).map((m) => m.key);
+    if (!keys.length) return;
+    if (!confirm(`Забыть участников, которых нет в сети (${keys.length})? Их фигурки останутся на поле.`)) return;
+    app.store.dispatch({ t: 'roster.forget', keys });
+  });
 
   $('#chat-clear').addEventListener('click', () => {
     if (!confirm('Очистить чат у всех за столом? Журнал бросков останется.')) return;

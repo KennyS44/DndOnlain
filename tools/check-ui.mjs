@@ -209,6 +209,24 @@ await dm.evaluate(() => window.__dispatch({ t: 'token.update', id: 'враг', p
 await pl.waitForTimeout(2000);
 R.полоскаВрага.послеВключенияВидна = await pl.evaluate(() => document.querySelectorAll('#init-list .hp-bar').length === 1);
 
+/* 7. значки участников: вышел — пропал из списка сверху */
+const значки = () => dm.evaluate(() => [...document.querySelectorAll('#members .dot')].map((d) => d.title));
+R.участники = { покаОбаВСети: await значки() };
+await pl.close();
+await dm.waitForTimeout(6000);
+R.участники.послеВыходаИгрока = await значки();
+await dm.click('[data-ltab="room"]');
+await dm.waitForTimeout(300);
+R.участники.вСпискеКомнатыОстался = await dm.evaluate(() =>
+  [...document.querySelectorAll('#members-list .name')].map((n) => n.textContent));
+dm.once('dialog', (d) => d.accept());
+await dm.click('#btn-forget-offline');
+await dm.waitForTimeout(1000);
+R.участники.послеЗабыть = await dm.evaluate(() => ({
+  список: [...document.querySelectorAll('#members-list .name')].map((n) => n.textContent),
+  кнопкаСкрыта: document.querySelector('#btn-forget-offline').hidden,
+}));
+
 R.errors = errors;
 console.log(JSON.stringify(R, null, 2));
 await browser.close();
