@@ -128,6 +128,7 @@ function start(sync, state, me) {
   app.sync.on('event', onRemoteEvent);
   app.sync.on('presence', renderMembers);
 
+  window.__state = () => app.store.get();   // окно в состояние для проверок
   wireUI();
   renderAll(app.store.get());
   app.board.fit();

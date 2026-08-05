@@ -20,6 +20,8 @@ export function createBoard(opts) {
   let preview = null;      // текущий незавершённый штрих
   let fogBatch = null;     // {cells:Set, on:bool}
   let hoverId = null;
+  let touched = false;      // камеру уже двигали руками — не вписываем автоматически
+  let lastLocId = null;
 
   const fogLayer = document.createElement('canvas');
 
@@ -43,7 +45,12 @@ export function createBoard(opts) {
     sync.getAsset(assetId).then((url) => {
       if (!url) return;
       const img = new Image();
-      img.onload = () => { IMG_CACHE.set(assetId, img); render(); };
+      img.onload = () => {
+        IMG_CACHE.set(assetId, img);
+        // карта догрузилась позже входа — вписываем её, если камеру ещё не трогали
+        const l = loc();
+        if (l && l.assetId === assetId && !touched) api.fit(); else render();
+      };
       img.src = url;
     });
     return null;
@@ -81,6 +88,10 @@ export function createBoard(opts) {
     ctx.clearRect(0, 0, W, H);
     const l = loc();
     if (!l) return;
+    if (l.id !== lastLocId) {          // сменили локацию — показываем её целиком
+      lastLocId = l.id; touched = false;
+      api.fit(); return;
+    }
 
     // карта
     const map = getImage(l.assetId);
@@ -376,6 +387,7 @@ export function createBoard(opts) {
     }
 
     if (drag.type === 'pan') {
+      touched = true;
       view.x = drag.view.x + (p.x - drag.from.x);
       view.y = drag.view.y + (p.y - drag.from.y);
       onViewChange && onViewChange(view);
@@ -448,6 +460,7 @@ export function createBoard(opts) {
   }
 
   function zoomAt(p, k) {
+    touched = true;
     const w = s2w(p.x, p.y);
     view.scale = Math.max(.08, Math.min(6, view.scale * k));
     view.x = p.x - w.x * view.scale;
@@ -462,6 +475,7 @@ export function createBoard(opts) {
     drag = null;
   }
   function doPinch() {
+    touched = true;
     const [a, b] = [...pointers.values()];
     const d = Math.hypot(a.x - b.x, a.y - b.y);
     const c = { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 };
@@ -486,7 +500,7 @@ export function createBoard(opts) {
   });
   new ResizeObserver(resize).observe(canvas);
 
-  return {
+  const api = {
     render, resize,
     view: () => view,
     setTool(t) {
@@ -517,4 +531,5 @@ export function createBoard(opts) {
     },
     invalidateAsset(id) { IMG_CACHE.delete(id); render(); },
   };
+  return api;
 }

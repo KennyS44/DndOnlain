@@ -8,7 +8,7 @@
 export const FIREBASE = {
   apiKey: 'AIzaSyAD3MmyM-Ca1ywfsRWLIrhjo_tx2ieuVQI',
   authDomain: 'dnd-dashboard-bf025.firebaseapp.com',
-  databaseURL: '',
+  databaseURL: 'https://dnd-dashboard-bf025-default-rtdb.europe-west1.firebasedatabase.app',
   projectId: 'dnd-dashboard-bf025',
   storageBucket: 'dnd-dashboard-bf025.firebasestorage.app',
   messagingSenderId: '703374617184',
