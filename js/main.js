@@ -27,6 +27,25 @@ function myId() {
 }
 const slug = (s) => s.trim().toLowerCase().replace(/\s+/g, '-').replace(/[^\wа-яё-]/gi, '').slice(0, 40);
 
+/* Вход по ссылке-приглашению: ?r=комната&k=ключ (игрок) + &m=ключ (Мастер). */
+const P = new URLSearchParams(location.search);
+const invite = P.get('r') && P.get('k')
+  ? { room: P.get('r'), key: P.get('k'), dm: P.get('m') || '' } : null;
+
+if (invite) {
+  const jf = $('#join-form');
+  $('.tabs[role=tablist]').hidden = true;
+  $('#create-form').hidden = true;
+  jf.hidden = false;
+  jf.room.value = invite.room;
+  jf.key.value = invite.key;
+  jf.dmkey.value = invite.dm;
+  $$('.field', jf).forEach((f, i) => { if (i > 0) f.hidden = true; });
+  $('.gate-sub').innerHTML = `Комната «${esc(invite.room)}»<br>вы входите как <b>${invite.dm ? 'Мастер' : 'игрок'}</b>`;
+  const saved = localStorage.getItem('dnd.name');
+  if (saved) jf.name.value = saved;
+}
+
 $('.gate-note').textContent = useFirebase
   ? 'Комната живёт в облаке: заходите с любого устройства, всё сохраняется между встречами.'
   : 'Пока работает локальная синхронизация (вкладки одного браузера). Подключим Firebase — заработает между устройствами.';
@@ -59,6 +78,7 @@ $('#create-form').addEventListener('submit', async (e) => {
   busy(e.target, true);
   try {
     const me = { id: myId(), name: f.get('name').trim(), role: 'dm' };
+    localStorage.setItem('dnd.name', me.name);
     const sync = await makeSync(await roomPath(name, f.get('key')), me);
     if (await sync.loadState()) return fail(err, 'Комната с таким названием и ключом уже есть — войдите в неё');
     const st = emptyState({ name, playerKey: f.get('key'), dmKey: f.get('dmkey') });
@@ -78,9 +98,17 @@ $('#join-form').addEventListener('submit', async (e) => {
   busy(e.target, true);
   try {
     const me = { id: myId(), name: f.get('name').trim(), role: 'player' };
+    localStorage.setItem('dnd.name', me.name);
     const sync = await makeSync(await roomPath(f.get('room'), key), me);
     const st = await sync.loadState();
-    if (!st) return fail(err, 'Комната не найдена — проверьте название и ключ');
+    if (!st) {
+      // по ссылке Мастера комната создаётся сама при первом входе
+      if (!(invite && dmkey)) return fail(err, 'Комната не найдена — проверьте название и ключ');
+      const fresh = emptyState({ name: f.get('room').trim(), playerKey: key, dmKey: dmkey });
+      me.role = 'dm';
+      sync.saveState(fresh, { name: fresh.room.name });
+      return start(sync, fresh, me);
+    }
     if (!useFirebase && key !== st.room.playerKey) return fail(err, 'Неверный ключ комнаты');
     if (dmkey) {
       if (dmkey !== st.room.dmKey) return fail(err, 'Неверный ключ Мастера');
@@ -649,6 +677,22 @@ function wireDM() {
     app.store.dispatch({ t: 'room.keys', patch: { playerKey: $('#key-player').value, dmKey: $('#key-dm').value } });
     say('Ключи комнаты изменены', 'system');
   });
+
+  const inviteLink = (withDM) => {
+    const s = app.store.get();
+    const p = new URLSearchParams({ r: s.room.name, k: s.room.playerKey || '' });
+    if (withDM) p.set('m', s.room.dmKey || '');
+    return location.origin + location.pathname + '?' + p.toString();
+  };
+  const showLink = (url) => {
+    const out = $('#link-out');
+    out.hidden = false; out.value = url; out.select();
+    navigator.clipboard?.writeText(url).then(
+      () => { $('#link-hint').hidden = false; },
+      () => { $('#link-hint').hidden = true; });
+  };
+  $('#btn-link-player').addEventListener('click', () => showLink(inviteLink(false)));
+  $('#btn-link-dm').addEventListener('click', () => showLink(inviteLink(true)));
 
   $('#btn-export').addEventListener('click', exportCampaign);
   $('#btn-import').addEventListener('change', importCampaign);

@@ -192,6 +192,11 @@ em{color:var(--muted); font-style:normal; font-size:14px}
 .list-item.is-active{border-color:var(--gold); background:var(--panel-2)}
 .list-item .name{flex:1; font-size:14px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap}
 .list-item .thumb{width:40px; height:32px; object-fit:cover; border-radius:4px; background:var(--panel-2)}
+.link-out{
+  width:100%; min-height:44px; margin-top:var(--s2); padding:0 var(--s3);
+  border-radius:var(--r-sm); border:1px solid var(--line); background:var(--bg-2);
+  color:var(--muted); font-size:14px;
+}
 .mini{border:0; background:transparent; color:var(--muted); cursor:pointer; font-size:14px; padding:var(--s1)}
 .mini:hover{color:var(--gold)}
 
