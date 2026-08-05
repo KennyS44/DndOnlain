@@ -66,7 +66,7 @@ export function newToken(patch) {
   return {
     id: uid('tok'), locId: null, x: 0, y: 0, cells: 1,
     assetId: null, name: 'Существо', kind: 'npc',
-    ownerId: null, hp: { cur: 10, max: 10 }, statuses: [],
+    ownerId: null, ownerName: null, hp: { cur: 10, max: 10 }, statuses: [],
     vision: 0, ...patch,
   };
 }
@@ -82,7 +82,8 @@ export function reduce(s, a) {
       s.room = { ...s.room, ...a.patch }; break;
 
     case 'roster.seen':
-      s.roster = { ...s.roster, [a.member.id]: a.member }; break;
+      // ключ — имя: один человек остаётся собой после перезахода и с другого устройства
+      s.roster = { ...s.roster, [a.member.key || a.member.id]: a.member }; break;
 
     case 'loc.add':
       s.locations = { ...s.locations, [a.loc.id]: a.loc };
@@ -190,12 +191,16 @@ function deepMerge(base, patch) {
 }
 
 /** Мини-шина: хранит состояние, раздаёт подписчикам, шлёт действия в sync. */
-export function createStore(initial, sync) {
+export function createStore(initial, sync, onRemote) {
   let state = initial;
   const subs = new Set();
   const notify = () => subs.forEach((fn) => fn(state));
 
-  sync.on('action', (a) => { state = reduce({ ...state }, a); notify(); persist(); });
+  sync.on('action', (a) => {
+    state = reduce({ ...state }, a);
+    notify(); persist();
+    if (onRemote) onRemote(a);
+  });
 
   let dirty = false;
   function persist() {

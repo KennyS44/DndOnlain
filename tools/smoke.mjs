@@ -2,6 +2,8 @@
 // ставим токен, бросаем кубик и следим за ошибками консоли.
 import { chromium } from 'playwright-chromium';
 import zlib from 'node:zlib';
+import { roomFingerprint } from '../js/sync-firebase.js';
+import { FIREBASE } from '../js/firebase-config.js';
 
 const png = (w, h, rgb) => {
   const raw = Buffer.alloc((w * 3 + 1) * h);
@@ -38,7 +40,9 @@ const file = (name, buf) => ({ name, mimeType: 'image/png', buffer: buf });
 const MAP = file('map.png', png(600, 400, [60, 55, 45]));
 const HERO = file('hero.png', png(64, 64, [130, 160, 95]));
 
-const URL_ = 'http://127.0.0.1:20300/index.html';
+const URL_ = process.env.BASE_URL || 'http://127.0.0.1:20300/index.html';
+const ROOM = 'Тест ' + process.pid;
+const KEY = 'pk' + process.pid;
 const errors = [];
 
 const browser = await chromium.launch();
@@ -50,8 +54,8 @@ dm.on('pageerror', (e) => errors.push('DM error: ' + e.message));
 await dm.goto(URL_);
 await dm.click('[data-gate-tab="create"]');
 await dm.fill('#create-form [name=name]', 'Мастер');
-await dm.fill('#create-form [name=room]', 'Тестовый стол');
-await dm.fill('#create-form [name=key]', 'players');
+await dm.fill('#create-form [name=room]', ROOM);
+await dm.fill('#create-form [name=key]', KEY);
 await dm.fill('#create-form [name=dmkey]', 'master');
 await dm.click('#create-form button[type=submit]');
 await dm.waitForSelector('#app:not([hidden])');
@@ -97,7 +101,7 @@ await dm.click('#init-next');
 // кубик + чат
 await dm.click('#btn-dice');
 await dm.click('#dice-buttons .die-btn:nth-child(6)');
-await dm.waitForSelector('.die3d');
+await dm.waitForSelector('.die');
 await dm.click('[data-rtab="chat"]');
 await dm.fill('#chat-input', 'Проверка связи');
 await dm.press('#chat-input', 'Enter');
@@ -116,11 +120,9 @@ const player = await ctxA.newPage();
 player.on('console', (m) => m.type() === 'error' && errors.push('PL console: ' + m.text()));
 player.on('pageerror', (e) => errors.push('PL error: ' + e.message));
 await player.goto(URL_);
-await player.evaluate(() => localStorage.setItem('dnd.me', 'u_player_test'));
-await player.reload();
 await player.fill('#join-form [name=name]', 'Торин');
-await player.fill('#join-form [name=room]', 'Тестовый стол');
-await player.fill('#join-form [name=key]', 'players');
+await player.fill('#join-form [name=room]', ROOM);
+await player.fill('#join-form [name=key]', KEY);
 await player.click('#join-form button[type=submit]');
 await player.waitForSelector('#app:not([hidden])');
 await player.waitForTimeout(500);
@@ -135,7 +137,7 @@ const playerSees = await player.evaluate(() => ({
 // игрок бросает кубик — Мастер должен увидеть анимацию
 await player.click('#btn-dice');
 await player.click('#dice-buttons .die-btn:nth-child(6)');
-await dm.waitForSelector('.die3d', { timeout: 3000 }).catch(() => errors.push('Мастер не увидел бросок игрока'));
+await dm.waitForSelector('.die', { timeout: 3000 }).catch(() => errors.push('Мастер не увидел бросок игрока'));
 await player.screenshot({ path: 'tools/shot-player.png' });
 
 // мобильный вид
@@ -148,3 +150,7 @@ const overflow = await mp.evaluate(() => document.documentElement.scrollWidth - 
 
 console.log(JSON.stringify({ playerSees, overflow, errors }, null, 2));
 await browser.close();
+
+// убираем тестовую комнату из базы
+const slugRoom = ROOM.trim().toLowerCase().replace(/\s+/g, '-').replace(/[^\wа-яё-]/gi, '').slice(0, 40);
+await fetch(`${FIREBASE.databaseURL}/rooms/${encodeURIComponent(slugRoom + '-' + roomFingerprint(slugRoom, KEY))}.json`, { method: 'DELETE' });

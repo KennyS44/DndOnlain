@@ -20,11 +20,15 @@ const app = {};   // me, sync, store, board, isDM
 
 /* ───────────────────────── Вход ───────────────────────── */
 
+// Идентификатор — свой у каждой вкладки: иначе два окна одного браузера
+// считают действия друг друга своими и молча их выбрасывают.
 function myId() {
-  let id = localStorage.getItem('dnd.me');
-  if (!id) { id = uid('u'); localStorage.setItem('dnd.me', id); }
+  let id = sessionStorage.getItem('dnd.me');
+  if (!id) { id = uid('u'); sessionStorage.setItem('dnd.me', id); }
   return id;
 }
+/** Человек за столом узнаётся по имени — оно переживает перезаход и смену устройства. */
+export const nameKey = (n) => String(n || '').trim().toLowerCase();
 const slug = (s) => s.trim().toLowerCase().replace(/\s+/g, '-').replace(/[^\wа-яё-]/gi, '').slice(0, 40);
 
 /* Вход по ссылке-приглашению: ?r=комната&k=ключ (игрок) + &m=ключ (Мастер). */
@@ -134,7 +138,8 @@ function start(sync, state, me) {
   app.me = me;
   app.isDM = me.role === 'dm';
   app.sync = sync;
-  app.store = createStore(normalize(state), sync);
+  app.peers = [];
+  app.store = createStore(normalize(state), sync, onRemoteAction);
 
   $('#gate').hidden = true;
   $('#app').hidden = false;
@@ -151,12 +156,20 @@ function start(sync, state, me) {
     onViewChange: (v) => { $('#zoom-val').textContent = Math.round(v.scale * 100) + '%'; },
   });
 
-  app.store.dispatch({ t: 'roster.seen', member: { id: me.id, name: me.name, role: me.role } });
+  app.store.dispatch({
+    t: 'roster.seen',
+    member: { key: nameKey(me.name), id: me.id, name: me.name, role: me.role },
+  });
   app.store.subscribe(renderAll);
   app.sync.on('event', onRemoteEvent);
-  app.sync.on('presence', renderMembers);
+  app.sync.on('presence', (list) => { app.peers = list; renderMembers(); });
 
-  window.__state = () => app.store.get();   // окно в состояние для проверок
+  // окна в состояние для проверок
+  window.__state = () => app.store.get();
+  window.__dispatch = (a) => app.store.dispatch(a);
+  window.__board = () => app.board;
+  window.__peers = () => app.sync.peers();
+  window.__me = () => app.me;
   wireUI();
   renderAll(app.store.get());
   app.board.fit();
@@ -164,8 +177,13 @@ function start(sync, state, me) {
 }
 
 function onRemoteEvent(ev) {
-  if (ev.type === 'dice') playAnimation($('#dice-stage'), ev.result, ev.caption);
-  else if (ev.type === 'asset') { app.board.invalidateAsset(ev.id); renderAll(app.store.get()); }
+  if (ev.type === 'asset') { app.board.invalidateAsset(ev.id); renderAll(app.store.get()); }
+}
+
+/** Чужой бросок прилетает тем же каналом, что и всё остальное, — анимацию видят все. */
+function onRemoteAction(a) {
+  if (a.t !== 'chat.add' || a.msg.kind !== 'roll' || a.msg.secret) return;
+  playAnimation($('#dice-stage'), a.msg.roll, `${a.msg.name}: ${a.msg.roll.formula}`);
 }
 
 /* ───────────────────────── Работа с картинками ───────────────────────── */
@@ -202,6 +220,7 @@ function renderAll(s) {
   renderChat(s);
   renderInit(s);
   renderPics(s);
+  renderMembers();
   const loc = s.activeLoc ? s.locations[s.activeLoc] : null;
   $('#loc-title').textContent = loc ? loc.name : '';
   $('#empty-hint').hidden = !!loc;
@@ -382,23 +401,36 @@ function updateShowcase(s) {
   app.sync.getAsset(id).then((u) => { if (u) { img.src = u; box.hidden = false; } });
 }
 
-function renderMembers(list) {
+/** Все, кого знает стол: кто сейчас в сети + кто заходил раньше, без дублей по имени. */
+function participants() {
+  const out = new Map();
+  Object.values(app.store.get().roster).forEach((m) => {
+    out.set(nameKey(m.name), { ...m, online: false });
+  });
+  (app.peers || []).forEach((p) => {
+    const k = nameKey(p.name);
+    out.set(k, { ...(out.get(k) || {}), key: k, id: p.id, name: p.name, role: p.role, online: true });
+  });
+  return [...out.values()].sort((a, b) => (b.role === 'dm') - (a.role === 'dm'));
+}
+
+function renderMembers() {
   const box = $('#members');
   box.innerHTML = '';
-  list.forEach((p) => {
-    const d = el('span', 'dot', p.name.slice(0, 1).toUpperCase());
+  participants().forEach((p) => {
+    const d = el('span', 'dot', (p.name || '?').slice(0, 1).toUpperCase());
     d.style.background = p.role === 'dm' ? 'var(--gold)' : '#7fa8c9';
-    d.title = p.name + (p.role === 'dm' ? ' — Мастер' : '');
+    d.style.opacity = p.online ? '1' : '.4';
+    d.title = p.name + (p.role === 'dm' ? ' — Мастер' : '') + (p.online ? '' : ' (не в сети)');
     box.append(d);
   });
   const ml = $('#members-list');
   if (ml) {
     ml.innerHTML = '';
-    Object.values(app.store.get().roster).forEach((m) => {
-      const online = list.some((p) => p.id === m.id);
+    participants().forEach((m) => {
       const row = el('div', 'list-item');
       row.append(el('span', 'name', m.name + (m.role === 'dm' ? ' — Мастер' : '')));
-      row.append(el('span', 'badge', online ? 'в сети' : 'нет'));
+      row.append(el('span', 'badge', m.online ? 'в сети' : 'нет'));
       ml.append(row);
     });
   }
@@ -434,13 +466,20 @@ function openTokenCard(t, screenPos) {
 
   const sel = el('select', 'sel');
   sel.append(new Option('— ничей —', ''));
-  Object.values(app.store.get().roster).forEach((m) => {
-    const o = new Option(m.name + (m.role === 'dm' ? ' (Мастер)' : ''), m.id);
-    if (t.ownerId === m.id) o.selected = true;
+  const people = participants();
+  people.forEach((m) => {
+    const o = new Option(m.name + (m.role === 'dm' ? ' (Мастер)' : '') + (m.online ? '' : ' — не в сети'), m.key);
+    if (nameKey(t.ownerName) === m.key) o.selected = true;
     sel.append(o);
   });
-  sel.addEventListener('change', () => upd(t.id, { ownerId: sel.value || null }));
+  sel.addEventListener('change', () => {
+    const p = people.find((m) => m.key === sel.value);
+    upd(t.id, { ownerName: p ? p.name : null, ownerId: p ? p.id : null });
+  });
   card.append(field('Кому принадлежит', sel));
+  if (people.length < 2) {
+    card.append(el('p', 'hint', 'За столом пока только вы. Как игроки войдут по ссылке — появятся здесь.'));
+  }
 
   const inInit = app.store.get().init.order.some((o) => o.id === t.id);
   const row = el('div', 'row-2');
@@ -505,9 +544,7 @@ function doRoll(sides) {
   const r = roll(sides, count, mod, adv);
   const secret = diceMode === 'secret' && app.isDM;
   say('', 'roll', { roll: r, secret });
-  const caption = `${app.me.name}: ${r.formula}`;
-  playAnimation($('#dice-stage'), r, caption + (secret ? ' · тайно' : ''));
-  if (!secret) app.sync.emit({ type: 'dice', result: r, caption });
+  playAnimation($('#dice-stage'), r, `${app.me.name}: ${r.formula}${secret ? ' · тайно' : ''}`);
 }
 
 /* ───────────────────────── Провода интерфейса ───────────────────────── */

@@ -56,7 +56,10 @@ export function createBoard(opts) {
     return null;
   }
 
-  function canMove(t) { return isDM || t.ownerId === me.id; }
+  const nameKey = (n) => String(n || '').trim().toLowerCase();
+  function canMove(t) {
+    return isDM || t.ownerId === me.id || (t.ownerName && nameKey(t.ownerName) === nameKey(me.name));
+  }
 
   /* ── сетка и клетки ────────────────────────────────────────── */
   function gridOf() { const l = loc(); return l ? l.grid : { size: 70, ox: 0, oy: 0, feet: 5, show: true }; }
@@ -194,7 +197,7 @@ export function createBoard(opts) {
 
   function ringColor(t) {
     if (hoverId === t.id) return '#e0c063';
-    if (t.ownerId) return '#7fa8c9';
+    if (t.ownerName || t.ownerId) return '#7fa8c9';
     return t.kind === 'enemy' ? '#b8604a' : t.kind === 'pc' ? '#83a05f' : '#8d7440';
   }
 
@@ -395,8 +398,15 @@ export function createBoard(opts) {
     } else if (drag.type === 'token') {
       const t = S().tokens[drag.id]; if (!t) return;
       drag.moved = true;
-      const nx = w.x + drag.dx, ny = w.y + drag.dy;
-      store.dispatch({ t: 'token.update', id: drag.id, patch: { x: nx, y: ny } });
+      drag.at = { x: w.x + drag.dx, y: w.y + drag.dy };
+      // у себя двигаем сразу, остальным шлём 12 раз в секунду — иначе канал захлёбывается
+      t.x = drag.at.x; t.y = drag.at.y;
+      render();
+      const now = performance.now();
+      if (now - (drag.sentAt || 0) > 80) {
+        drag.sentAt = now;
+        store.dispatch({ t: 'token.update', id: drag.id, patch: { ...drag.at } });
+      }
     } else if (drag.type === 'ruler') {
       ruler.b = w; render();
     } else if (drag.type === 'draw') {

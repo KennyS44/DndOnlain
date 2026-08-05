@@ -110,7 +110,7 @@ await dm.waitForFunction(() => [...document.querySelectorAll('#chat-feed .body')
 
 await dm.click('#btn-dice');
 await dm.click('#dice-buttons .die-btn:nth-child(6)');
-await pl.waitForSelector('.die3d', { timeout: 15000 }).catch(() => errors.push('Игрок не увидел бросок Мастера'));
+await pl.waitForSelector('.die', { timeout: 15000 }).catch(() => errors.push('Игрок не увидел бросок Мастера'));
 
 const before = await pl.evaluate(() => Object.values(window.__state().tokens)[0].x);
 const box = await dm.locator('#board').boundingBox();

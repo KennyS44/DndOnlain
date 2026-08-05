@@ -256,40 +256,49 @@ em{color:var(--muted); font-style:normal; font-size:14px}
 }
 .die-btn:hover{border-color:var(--gold); background:#332f27}
 
-.dice-stage{position:fixed; inset:0; pointer-events:none; z-index:40; perspective:900px}
-.die3d{
-  position:absolute; width:84px; height:84px; transform-style:preserve-3d;
-  animation:fly 1.15s var(--ease) forwards;
+.dice-stage{position:fixed; inset:0; pointer-events:none; z-index:40}
+.die-throw{position:fixed; inset:0; transition:opacity .5s var(--ease)}
+.die-throw.is-out{opacity:0}
+
+.die{
+  position:absolute; top:calc(50% - 96px); width:96px; height:96px;
+  animation:die-fly .9s var(--ease) both; will-change:transform;
+  filter:drop-shadow(0 10px 18px rgba(0,0,0,.55));
 }
-.die3d .face{
-  position:absolute; inset:0; display:grid; place-items:center;
-  background:linear-gradient(160deg,#2f2a22,#413828); border:1px solid var(--gold-dim);
-  border-radius:12px; color:var(--gold); font-family:var(--f-head); font-size:32px;
-  box-shadow:0 0 24px rgba(201,164,90,.18);
+@keyframes die-fly{
+  0%{opacity:0; transform:translate(var(--dx),90vh) rotate(-140deg) scale(.5)}
+  18%{opacity:1}
+  65%{transform:translate(calc(var(--dx) * .35),-56px) rotate(430deg) scale(1.12)}
+  100%{opacity:1; transform:translate(0,0) rotate(720deg) scale(1)}
 }
-.die3d .f1{transform:translateZ(42px)}
-.die3d .f2{transform:rotateY(90deg) translateZ(42px)}
-.die3d .f3{transform:rotateY(180deg) translateZ(42px)}
-.die3d .f4{transform:rotateY(-90deg) translateZ(42px)}
-.die3d .f5{transform:rotateX(90deg) translateZ(42px)}
-.die3d .f6{transform:rotateX(-90deg) translateZ(42px)}
-@keyframes fly{
-  0%{opacity:0; transform:translate(var(--fx),110vh) rotateX(0) rotateY(0) scale(.7)}
-  12%{opacity:1}
-  70%{transform:translate(calc(var(--fx)*.2),-40px) rotateX(720deg) rotateY(540deg) scale(1.05)}
-  100%{opacity:1; transform:translate(0,0) rotateX(1080deg) rotateY(720deg) scale(1)}
+.die-svg{width:100%; height:100%; overflow:visible}
+.die-body{fill:url(#none); fill:#2b261d; stroke:#c9a45a; stroke-width:2.5; stroke-linejoin:round}
+.die-edges{stroke:rgba(201,164,90,.42); stroke-width:1.4; fill:none}
+.die-num{
+  fill:#f0e3c2; font-family:"Cinzel", Georgia, serif; font-size:30px; font-weight:600;
+  text-anchor:middle; dominant-baseline:middle;
 }
-.die-throw{position:fixed; inset:0}
+.die.is-settled .die-body{fill:#332c21; stroke:#e0c063; filter:drop-shadow(0 0 10px rgba(224,192,99,.45))}
+.die.is-settled .die-num{fill:#fff6df}
+
 .die-result{
-  position:absolute; left:50%; transform:translate(-50%,-50%);
+  position:absolute; left:50%; top:calc(50% + 40px); transform:translate(-50%,8px);
   display:flex; flex-direction:column; align-items:center; gap:var(--s2);
+  opacity:0; transition:opacity .35s var(--ease), transform .35s var(--ease);
 }
+.die-result.is-on{opacity:1; transform:translate(-50%,0)}
 .die-result .caption{
-  font-size:14px; color:var(--muted); background:rgba(23,22,19,.8);
+  font-size:14px; color:var(--text); background:rgba(23,22,19,.85);
   padding:var(--s1) var(--s3); border-radius:999px; border:1px solid var(--line-soft);
 }
-.die-result .total-big{font-family:var(--f-head); font-size:32px; color:var(--gold)}
-@keyframes fade-out{to{opacity:0; transform:translate(-50%,-60%) scale(.9)}}
+.die-result .total-big{
+  font-family:var(--f-head); font-size:32px; color:var(--gold);
+  background:rgba(23,22,19,.85); border:1px solid var(--gold-dim);
+  border-radius:var(--r); padding:var(--s1) var(--s4);
+}
+@media (prefers-reduced-motion:reduce){
+  .die{animation-duration:.3s}
+}
 
 /* ── Доска картинок ──────────────────────────────────────────────── */
 .showcase{
