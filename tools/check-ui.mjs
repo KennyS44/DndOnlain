@@ -171,6 +171,44 @@ await pl.waitForTimeout(2500);
 R.очистка.послеОчисткиЧата = await счёт(pl);
 R.очистка.кнопкиУИгрокаНет = await pl.evaluate(() => !document.querySelector('#chat-clear') && !document.querySelector('#rolls-clear'));
 
+/* 6. скрытая полоска хитов у врага */
+await dm.evaluate(() => {
+  const s = window.__state();
+  window.__dispatch({
+    t: 'token.add',
+    token: {
+      id: 'враг', locId: s.activeLoc, x: 400, y: 400, cells: 1, name: 'Гоблин', kind: 'enemy',
+      assetId: null, ownerName: null, ownerId: null, hp: { cur: 7, max: 12 }, hpPublic: false,
+      statuses: [], vision: 0,
+    },
+  });
+});
+await pl.waitForTimeout(2500);
+const карточка = async (page, id) => {
+  const pos = await page.evaluate((tid) => {
+    const t = window.__state().tokens[tid];
+    return window.__board().worldToScreen(t.x, t.y);
+  }, id);
+  const b = await page.locator('#board').boundingBox();
+  await page.mouse.dblclick(b.x + pos.x, b.y + pos.y);
+  await page.waitForTimeout(400);
+  return page.textContent('#token-card');
+};
+R.полоскаВрага = {
+  скрытаУИгрока: !(await карточка(pl, 'враг')).includes('Хиты'),
+  вТрекереУИгрокаНет: await pl.evaluate(() => {
+    window.__dispatch({ t: 'init.set', order: [{ id: 'враг', v: 15 }] });
+    return true;
+  }).then(() => pl.waitForTimeout(1500)).then(() => pl.evaluate(() => {
+    document.querySelector('[data-rtab="init"]').click();
+    return document.querySelectorAll('#init-list .hp-bar').length === 0;
+  })),
+  уМастераВидна: (await карточка(dm, 'враг')).includes('Полоска хитов видна игрокам'),
+};
+await dm.evaluate(() => window.__dispatch({ t: 'token.update', id: 'враг', patch: { hpPublic: true } }));
+await pl.waitForTimeout(2000);
+R.полоскаВрага.послеВключенияВидна = await pl.evaluate(() => document.querySelectorAll('#init-list .hp-bar').length === 1);
+
 R.errors = errors;
 console.log(JSON.stringify(R, null, 2));
 await browser.close();

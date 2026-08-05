@@ -41,6 +41,7 @@ export function normalize(raw) {
   });
   Object.values(s.tokens).forEach((t) => {
     t.hp = { cur: 0, max: 0, ...(t.hp || {}) };
+    t.hpPublic = t.hpPublic !== false;
     t.statuses = t.statuses || [];
     t.vision = t.vision || 0;
     t.cells = t.cells || 1;
@@ -66,7 +67,7 @@ export function newToken(patch) {
   return {
     id: uid('tok'), locId: null, x: 0, y: 0, cells: 1,
     assetId: null, name: 'Существо', kind: 'npc',
-    ownerId: null, ownerName: null, hp: { cur: 10, max: 10 }, statuses: [],
+    ownerId: null, ownerName: null, hp: { cur: 10, max: 10 }, hpPublic: true, statuses: [],
     vision: 0, ...patch,
   };
 }

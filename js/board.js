@@ -185,6 +185,13 @@ export function createBoard(opts) {
           const k = Math.max(0, Math.min(1, t.hp.cur / t.hp.max));
           ctx.fillStyle = k > .5 ? '#83a05f' : k > .25 ? '#c9a45a' : '#b8604a';
           ctx.fillRect(bx, by, bw * k, bh);
+          // Мастеру видно всегда: пунктир значит «игроки этой полоски не видят»
+          if (t.hpPublic === false) {
+            ctx.save();
+            ctx.setLineDash([3, 3]); ctx.lineWidth = 1; ctx.strokeStyle = 'rgba(236,230,217,.75)';
+            ctx.strokeRect(bx - 1.5, by - 1.5, bw + 3, bh + 3);
+            ctx.restore();
+          }
         }
         if (t.statuses && t.statuses.length) {
           ctx.font = '11px Inter, sans-serif'; ctx.fillStyle = '#c9a45a'; ctx.textBaseline = 'bottom';

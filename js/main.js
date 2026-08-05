@@ -467,8 +467,9 @@ function openTokenCard(t, screenPos) {
   card.append(close, el('h4', '', t.name));
 
   if (!app.isDM) {
+    const hpVisible = t.hp && t.hp.max > 0 && t.hpPublic !== false;
     const info = el('div', 'hint',
-      `${t.hp && t.hp.max ? `Хиты: ${t.hp.cur}/${t.hp.max}. ` : ''}${(t.statuses || []).join(', ') || 'Состояний нет'}`);
+      `${hpVisible ? `Хиты: ${t.hp.cur}/${t.hp.max}. ` : ''}${(t.statuses || []).join(', ') || 'Состояний нет'}`);
     card.append(info);
     return;
   }
@@ -479,6 +480,8 @@ function openTokenCard(t, screenPos) {
     numInput(t.hp.cur, (v) => upd(t.id, { hp: { cur: v } })),
     numInput(t.hp.max, (v) => upd(t.id, { hp: { max: v } })))));
   card.append(field('Обзор, футов (0 — нет)', numInput(t.vision, (v) => upd(t.id, { vision: Math.max(0, v) }))));
+  card.append(checkRow('Полоска хитов видна игрокам', t.hpPublic !== false,
+    (on) => upd(t.id, { hpPublic: on })));
 
   const sel = el('select', 'sel');
   sel.append(new Option('— ничей —', ''));
@@ -514,6 +517,13 @@ function field(label, input) {
   return f;
 }
 function pair(a, b) { const d = el('div', 'row-2'); d.append(a, b); return d; }
+function checkRow(label, checked, onChange) {
+  const l = el('label', 'check');
+  const i = el('input'); i.type = 'checkbox'; i.checked = checked;
+  i.addEventListener('change', () => onChange(i.checked));
+  l.append(i, el('span', '', label));
+  return l;
+}
 function textInput(value, onChange) {
   const i = el('input'); i.value = value;
   i.addEventListener('change', () => onChange(i.value.slice(0, 32)));
@@ -539,6 +549,7 @@ function dropToken(libId, worldPos) {
   const token = newToken({
     locId: s.activeLoc, x: c.x, y: c.y, assetId: it.assetId, name: it.name, kind: it.kind,
     vision: it.kind === 'pc' ? 30 : 0,
+    hpPublic: it.kind !== 'enemy',      // хиты врага игрокам по умолчанию не видны
   });
   app.store.dispatch({ t: 'token.add', token });
 }
