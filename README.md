@@ -1,4 +1,4 @@
-# DndOnlain — a shared virtual tabletop for D&D-style games
+# YourTable — a shared virtual tabletop for D&D-style games
 
 A browser table for tabletop role-playing sessions: the Dungeon Master builds
 locations, uploads maps, hides them under fog of war and draws walls and doors;
@@ -9,7 +9,7 @@ No build step and no backend of our own: plain HTML, CSS and ES modules. The
 shared room lives in Firebase Realtime Database; images and the room snapshot
 are cached locally in IndexedDB.
 
-Live: **[kennys44.github.io/DndOnlain](https://kennys44.github.io/DndOnlain/)**
+Live: **[kennys44.github.io/YourTable](https://kennys44.github.io/YourTable/)**
 
 ## What's inside
 
@@ -94,8 +94,8 @@ Live: **[kennys44.github.io/DndOnlain](https://kennys44.github.io/DndOnlain/)**
 
 Open the published site, or serve the folder yourself:
 
-    git clone https://github.com/KennyS44/DndOnlain.git
-    cd DndOnlain
+    git clone https://github.com/KennyS44/YourTable.git
+    cd YourTable
     python3 -m http.server 20300
 
 Then open `http://localhost:20300/`. A server is needed because the app is

@@ -16,7 +16,7 @@ const SECONDS = Number(process.argv[3] || 45);     // сколько длитс�
 // в базу без отрисовки: у стенда всего 4 ядра, и лишние браузеры мерили бы его,
 // а не сайт. Задержку меряем только в настоящих браузерах.
 const BROWSERS = Math.min(TOTAL, Number(process.argv[4] || TOTAL));
-const BASE = process.env.BASE_URL || 'https://kennys44.github.io/DndOnlain/';
+const BASE = process.env.BASE_URL || 'https://kennys44.github.io/YourTable/';
 
 /* ── картинка карты ── */
 let T = null;

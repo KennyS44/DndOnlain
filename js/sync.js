@@ -9,6 +9,8 @@ const HEARTBEAT = 4000;
 const AWAY_AFTER = 12000;
 
 export async function createSync(roomId, me) {
+  // Префикс канала — от прежнего названия проекта; менять нельзя, иначе вкладки
+  // со старой и новой версией перестанут видеть друг друга.
   const chan = new BroadcastChannel('dndonlain:' + roomId);
   const handlers = { action: [], event: [], presence: [] };
   const peers = new Map();          // id -> {id, name, role, at}
