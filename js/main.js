@@ -180,7 +180,19 @@ function start(sync, state, me) {
 }
 
 function onRemoteEvent(ev) {
-  if (ev.type === 'asset') { app.board.invalidateAsset(ev.id); renderAll(app.store.get()); }
+  if (ev.type === 'asset') {
+    ASSETS.delete(ev.id);
+    app.board.invalidateAsset(ev.id);
+    renderAll(app.store.get());
+  }
+}
+
+/** Картинки тянем из базы один раз за сессию — иначе панели грузят их на каждой перерисовке. */
+const ASSETS = new Map();
+function assetUrl(id) {
+  if (!id) return Promise.resolve(null);
+  if (!ASSETS.has(id)) ASSETS.set(id, app.sync.getAsset(id));
+  return ASSETS.get(id);
 }
 
 /** Снимок комнаты в базу пишет Мастер; если его нет — самый «старший» из игроков. */
@@ -226,7 +238,16 @@ async function storeFiles(files, maxSide) {
 
 /* ───────────────────────── Отрисовка панелей ───────────────────────── */
 
-function renderAll(s) {
+/**
+ * Перерисовка. Во время перетаскивания фигурки прилетает по десятку действий
+ * в секунду — трогать ради них все панели и заново тянуть картинки нельзя,
+ * иначе страница начинает лагать. Такие действия обновляют только поле.
+ */
+function renderAll(s, action) {
+  if (action && BOARD_ONLY.has(action.t) && !touchesPanels(action)) {
+    app.board.render();
+    return;
+  }
   renderLocations(s);
   renderLibrary(s);
   renderChat(s);
@@ -247,6 +268,13 @@ function renderAll(s) {
 }
 function setVal(sel, v) { const el = $(sel); if (el && document.activeElement !== el) el.value = v; }
 
+const BOARD_ONLY = new Set(['token.update', 'fog.paint', 'draw.add', 'draw.clear', 'wall.add', 'wall.update', 'wall.remove']);
+/** Правки, которые видны и в панелях (хиты, имя, владелец) — там нужна полная перерисовка. */
+function touchesPanels(a) {
+  if (a.t !== 'token.update') return false;
+  return Object.keys(a.patch || {}).some((k) => !['x', 'y', 'mt'].includes(k));
+}
+
 function renderLocations(s) {
   const list = $('#locations-list'); if (!list) return;
   list.innerHTML = '';
@@ -254,7 +282,7 @@ function renderLocations(s) {
     const l = s.locations[id];
     const row = el('div', 'list-item' + (id === s.activeLoc ? ' is-active' : ''));
     const thumb = el('img', 'thumb'); thumb.alt = '';
-    if (l.assetId) app.sync.getAsset(l.assetId).then((u) => { if (u) thumb.src = u; });
+    if (l.assetId) assetUrl(l.assetId).then((u) => { if (u) thumb.src = u; });
     const name = el('span', 'name', l.name);
     row.append(thumb, name);
     row.addEventListener('click', () => { app.store.dispatch({ t: 'loc.active', id }); setTimeout(() => app.board.fit(), 30); });
@@ -298,7 +326,7 @@ function renderLibrary(s) {
       const card = el('div', 'lib-item');
       card.draggable = true;
       const img = el('img'); img.alt = it.name;
-      app.sync.getAsset(it.assetId).then((u) => { if (u) img.src = u; });
+      assetUrl(it.assetId).then((u) => { if (u) img.src = u; });
       const cap = el('div', 'cap', it.name);
       const del = el('button', 'del', '×');
       del.addEventListener('click', () => app.store.dispatch({ t: 'lib.remove', id: it.id }));
@@ -346,7 +374,7 @@ function renderInit(s) {
     const row = el('div', 'init-item' + (i === s.init.idx ? ' is-turn' : ''));
     const head = el('div', 'init-head');
     const img = el('img'); img.alt = '';
-    if (t.assetId) app.sync.getAsset(t.assetId).then((u) => { if (u) img.src = u; });
+    if (t.assetId) assetUrl(t.assetId).then((u) => { if (u) img.src = u; });
     head.append(img, el('span', 'nm', t.name), el('span', 'iv', String(entry.v)));
     row.append(head);
 
@@ -396,7 +424,7 @@ function renderPics(s) {
   s.pics.assets.forEach((id) => {
     const card = el('div', 'lib-item' + (s.pics.shown === id ? ' is-shown' : ''));
     const img = el('img'); img.alt = '';
-    app.sync.getAsset(id).then((u) => { if (u) img.src = u; });
+    assetUrl(id).then((u) => { if (u) img.src = u; });
     const del = el('button', 'del', '×');
     del.addEventListener('click', (e) => { e.stopPropagation(); app.store.dispatch({ t: 'pics.remove', assetId: id }); });
     card.append(img, del);
@@ -414,7 +442,7 @@ function updateShowcase(s) {
     ? 'Эту картинку сейчас видят игроки' : 'Картинка от Мастера';
   if (showcaseHiddenFor === id) { box.hidden = true; chip.hidden = false; return; }
   chip.hidden = true;
-  app.sync.getAsset(id).then((u) => { if (u) { img.src = u; box.hidden = false; } });
+  assetUrl(id).then((u) => { if (u) { img.src = u; box.hidden = false; } });
 }
 
 /** Все, кого знает стол: кто сейчас в сети + кто заходил раньше, без дублей по имени. */
@@ -507,6 +535,18 @@ function openTokenCard(t, screenPos) {
     upd(t.id, { ownerName: p ? p.name : null, ownerId: p ? p.id : null });
   });
   card.append(field('Кому принадлежит', sel));
+
+  const s = app.store.get();
+  if (s.order.length > 1) {
+    const locSel = el('select', 'sel');
+    s.order.forEach((id) => {
+      const o = new Option(s.locations[id].name, id);
+      if (id === t.locId) o.selected = true;
+      locSel.append(o);
+    });
+    locSel.addEventListener('change', () => moveTokenToLocation(t, locSel.value));
+    card.append(field('Локация', locSel));
+  }
   if (people.length < 2) {
     card.append(el('p', 'hint', 'За столом пока только вы. Как игроки войдут по ссылке — появятся здесь.'));
   }
@@ -548,6 +588,22 @@ function placeCard(card, at) {
 }
 
 const upd = (id, patch) => app.store.dispatch({ t: 'token.update', id, patch });
+
+/** Телепорт фигурки в другую локацию: та же клетка, пересчитанная под её сетку. */
+function moveTokenToLocation(t, toId) {
+  const s = app.store.get();
+  const from = s.locations[t.locId], to = s.locations[toId];
+  if (!from || !to || from.id === to.id) return;
+  const cx = Math.floor((t.x - from.grid.ox) / from.grid.size);
+  const cy = Math.floor((t.y - from.grid.oy) / from.grid.size);
+  upd(t.id, {
+    locId: toId,
+    x: to.grid.ox + (cx + 0.5) * to.grid.size,
+    y: to.grid.oy + (cy + 0.5) * to.grid.size,
+  });
+  say(`${t.name} перемещён в «${to.name}»`, 'system');
+  $('#token-card').hidden = true;
+}
 function field(label, input) {
   const f = el('label', 'field');
   f.append(el('span', '', label), input);
@@ -743,7 +799,11 @@ function wireDM() {
   $('#grid-feet').addEventListener('input', (e) => patchLoc({ grid: { feet: Math.max(1, Number(e.target.value) || 5) } }));
   $('#grid-show').addEventListener('change', (e) => patchLoc({ grid: { show: e.target.checked } }));
   $('#fog-on').addEventListener('change', (e) => patchLoc({ fogOn: e.target.checked }));
-  $('#fog-brush').addEventListener('input', (e) => app.board.setFogBrush(Math.max(1, Number(e.target.value) || 2)));
+  $('#fog-brush').addEventListener('input', (e) => app.board.setFogBrush(Number(e.target.value) || 1));
+  $$('[data-fogmode]').forEach((b) => b.addEventListener('click', () => {
+    $$('[data-fogmode]').forEach((x) => x.classList.toggle('is-active', x === b));
+    app.board.setFogMode(b.dataset.fogmode);
+  }));
   $('#fog-reveal-all').addEventListener('click', () => {
     const id = app.store.get().activeLoc;
     if (id) app.store.dispatch({ t: 'fog.all', locId: id, open: true });

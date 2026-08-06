@@ -19,6 +19,21 @@ export function emptyState(room) {
   };
 }
 
+/**
+ * База не хранит пустые объекты и массивы: у новой локации по дороге пропадают
+ * fog и drawings, и отрисовка поля падает. Поэтому чиним каждую локацию —
+ * и в снимке, и в приходящем действии.
+ */
+export function fixLoc(l) {
+  return {
+    ...l,
+    grid: { size: 70, ox: 0, oy: 0, feet: 5, show: true, ...(l.grid || {}) },
+    fog: l.fog || {},
+    walls: (l.walls || []).map((w) => ({ ...w })),
+    drawings: (l.drawings || []).map((d) => ({ ...d, pts: d.pts || [] })),
+  };
+}
+
 /** База (и импорт) не хранит пустые объекты и массивы — восстанавливаем форму. */
 export function normalize(raw) {
   const s = { ...emptyState({ name: '' }), ...(raw || {}) };
@@ -34,11 +49,7 @@ export function normalize(raw) {
   s.init = { order: [], idx: 0, round: 1, ...(s.init || {}) };
   s.init.order = s.init.order || [];
 
-  Object.values(s.locations).forEach((l) => {
-    l.grid = { size: 70, ox: 0, oy: 0, feet: 5, show: true, ...(l.grid || {}) };
-    l.fog = l.fog || {};
-    l.drawings = (l.drawings || []).map((d) => ({ ...d, pts: d.pts || [] }));
-  });
+  Object.keys(s.locations).forEach((id) => { s.locations[id] = fixLoc(s.locations[id]); });
   Object.values(s.tokens).forEach((t) => {
     t.hp = { cur: 0, max: 0, ...(t.hp || {}) };
     t.hpPublic = t.hpPublic !== false;
@@ -93,7 +104,7 @@ export function reduce(s, a) {
       s.roster = { ...s.roster, [a.member.key || a.member.id]: a.member }; break;
 
     case 'loc.add':
-      s.locations = { ...s.locations, [a.loc.id]: a.loc };
+      s.locations = { ...s.locations, [a.loc.id]: fixLoc(a.loc) };
       s.order = [...s.order, a.loc.id];
       if (!s.activeLoc) s.activeLoc = a.loc.id;
       break;
@@ -122,7 +133,11 @@ export function reduce(s, a) {
     }
 
     case 'token.add':
-      s.tokens = { ...s.tokens, [a.token.id]: a.token }; break;
+      s.tokens = {
+        ...s.tokens,
+        [a.token.id]: { ...a.token, statuses: a.token.statuses || [], hp: { cur: 0, max: 0, ...(a.token.hp || {}) } },
+      };
+      break;
     case 'token.update': {
       const cur = s.tokens[a.id]; if (!cur) break;
       s.tokens = { ...s.tokens, [a.id]: deepMerge(cur, a.patch) };
@@ -207,11 +222,11 @@ function deepMerge(base, patch) {
 export function createStore(initial, sync, onRemote, canPersist) {
   let state = initial;
   const subs = new Set();
-  const notify = () => subs.forEach((fn) => fn(state));
+  const notify = (a) => subs.forEach((fn) => fn(state, a));
 
   sync.on('action', (a) => {
     state = reduce({ ...state }, a);
-    notify(); persist();
+    notify(a); persist();
     if (onRemote) onRemote(a);
   });
 
@@ -228,10 +243,10 @@ export function createStore(initial, sync, onRemote, canPersist) {
     subscribe(fn) { subs.add(fn); return () => subs.delete(fn); },
     dispatch(a) {
       state = reduce({ ...state }, a);
-      notify(); persist();
+      notify(a); persist();
       sync.send(a);
     },
     /** Применить без рассылки (загрузка снимка). */
-    hydrate(next) { state = next; notify(); },
+    hydrate(next) { state = next; notify(null); },
   };
 }

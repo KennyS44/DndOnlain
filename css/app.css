@@ -139,6 +139,8 @@ em{color:var(--muted); font-style:normal; font-size:14px}
 .panel-body.panel-flex{overflow:hidden}
 
 /* ── Поле ────────────────────────────────────────────────────────── */
+/* при возне на поле не должен выделяться текст панелей */
+.board-wrap, .toolbar, .draw-bar, .panel .tabs{user-select:none; -webkit-user-select:none}
 .board-wrap{position:relative; flex:1; min-width:0; background:
   repeating-linear-gradient(45deg,#1b1a16 0 12px,#1d1b17 12px 24px);
   overflow:hidden; touch-action:none}

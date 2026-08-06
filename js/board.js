@@ -10,7 +10,8 @@ export function createBoard(opts) {
   let view = { x: 0, y: 0, scale: 1 };
   let tool = 'select';
   let draw = { shape: 'pen', color: '#c9a45a', width: 4 };
-  let fogBrush = 2;
+  let fogBrush = 1;
+  let fogMode = 'reveal';       // 'reveal' — открывает местность, 'hide' — возвращает туман
 
   // временные состояния взаимодействия
   let drag = null;         // {type:'pan'|'token'|'ruler'|'draw'|'fog', ...}
@@ -106,7 +107,7 @@ export function createBoard(opts) {
 
     const bounds = mapBounds();
     if (l.grid.show) drawGrid(W, H, bounds);
-    drawStrokes(l.drawings);
+    drawStrokes(l.drawings || []);
     if (preview) drawStroke(preview, true);
     drawTokens();
     if (l.fogOn) drawFog(W, H, bounds);
@@ -243,21 +244,24 @@ export function createBoard(opts) {
         const rr = Math.hypot(b.x - a.x, b.y - a.y);
         ctx.beginPath(); ctx.arc(a.x, a.y, rr, 0, Math.PI * 2); ctx.stroke();
         ctx.globalAlpha = .12; ctx.fill();
-        labelFeet(a, b, rr);
+        labelFeet(rr, a.x, a.y - rr - 16);          // над краем круга, а не в центре
       } else if (d.shape === 'cone') {
         const ang = Math.atan2(b.y - a.y, b.x - a.x), rr = Math.hypot(b.x - a.x, b.y - a.y);
         ctx.beginPath(); ctx.moveTo(a.x, a.y);
         ctx.arc(a.x, a.y, rr, ang - .45, ang + .45); ctx.closePath();
         ctx.stroke(); ctx.globalAlpha = .14; ctx.fill();
-        labelFeet(a, b, rr);
+        // подпись за дальним краем конуса, по направлению броска
+        labelFeet(rr, a.x + Math.cos(ang) * (rr + 20), a.y + Math.sin(ang) * (rr + 20));
       }
     }
     ctx.restore();
   }
 
-  function labelFeet(a, b, rPx) {
+  /** Подпись дальности ставим у края фигуры, чтобы она не легла на иконку существа. */
+  function labelFeet(rPx, x, y) {
     const ft = Math.round((rPx / view.scale) * feetPerPx());
-    chip(ft + ' фт', a.x, a.y - 18);
+    const r = canvas.getBoundingClientRect();
+    chip(ft + ' фт', Math.max(40, Math.min(r.width - 40, x)), Math.max(20, Math.min(r.height - 20, y)));
   }
 
   /** Настоящее расстояние по прямой: диагональ длиннее стороны клетки. */
@@ -301,12 +305,17 @@ export function createBoard(opts) {
     const g = gridOf();
     const p = drag.last;
     if (!p) return;
+    const w = s2w(p.x, p.y);
+    const n = Math.max(1, fogBrush), half = Math.floor((n - 1) / 2);
+    const cx = Math.floor((w.x - g.ox) / g.size) - half;
+    const cy = Math.floor((w.y - g.oy) / g.size) - half;
+    const a = w2s(g.ox + cx * g.size, g.oy + cy * g.size);
+    const side = n * g.size * view.scale;
     ctx.save();
     ctx.strokeStyle = drag.on ? '#83a05f' : '#b8604a';
     ctx.lineWidth = 2;
-    ctx.beginPath();
-    ctx.arc(p.x, p.y, fogBrush * g.size * view.scale, 0, Math.PI * 2);
-    ctx.stroke(); ctx.restore();
+    ctx.strokeRect(a.x, a.y, side, side);
+    ctx.restore();
   }
 
   /** Туман: заливаем слой и вырезаем открытые клетки и круги обзора. */
@@ -323,7 +332,7 @@ export function createBoard(opts) {
     if (!l.fogAllOpen) {
       // открытые Мастером клетки
       const step = g.size * view.scale;
-      Object.keys(l.fog).forEach((k) => {
+      Object.keys(l.fog || {}).forEach((k) => {
         const [cx, cy] = k.split(',').map(Number);
         const p = w2s(g.ox + cx * g.size, g.oy + cy * g.size);
         if (p.x > W || p.y > H || p.x + step < 0 || p.y + step < 0) return;
@@ -386,7 +395,8 @@ export function createBoard(opts) {
       drag = { type: 'draw' }; render(); return;
     }
     if (tool === 'fog' && isDM && !mid) {
-      const on = !(e.altKey || e.button === 2);
+      // режим кисти задаётся в панели, Alt или правая кнопка переключают на лету
+      const on = (e.altKey || e.button === 2) ? fogMode !== 'reveal' : fogMode === 'reveal';
       fogBatch = { cells: new Set(), on };
       drag = { type: 'fog', on, last: p };
       paintFog(w, on); return;
@@ -473,11 +483,12 @@ export function createBoard(opts) {
   function paintFog(w, on) {
     const g = gridOf();
     const c0x = Math.floor((w.x - g.ox) / g.size), c0y = Math.floor((w.y - g.oy) / g.size);
-    const r = fogBrush;
-    for (let dx = -r; dx <= r; dx++) {
-      for (let dy = -r; dy <= r; dy++) {
-        if (Math.hypot(dx, dy) > r) continue;
-        fogBatch.cells.add((c0x + dx) + ',' + (c0y + dy));
+    // размер кисти — это сторона квадрата в клетках: 1 значит ровно одна клетка
+    const n = Math.max(1, fogBrush);
+    const half = Math.floor((n - 1) / 2);
+    for (let dx = 0; dx < n; dx++) {
+      for (let dy = 0; dy < n; dy++) {
+        fogBatch.cells.add((c0x - half + dx) + ',' + (c0y - half + dy));
       }
     }
     // мгновенный отклик: правим локально, рассылаем на отпускании
@@ -543,7 +554,8 @@ export function createBoard(opts) {
       render();
     },
     setDraw(patch) { Object.assign(draw, patch); },
-    setFogBrush(n) { fogBrush = n; },
+    setFogBrush(n) { fogBrush = Math.max(1, n); },
+    setFogMode(m) { fogMode = m; },
     screenToWorld: s2w,
     worldToScreen: w2s,
     cellCenter,
