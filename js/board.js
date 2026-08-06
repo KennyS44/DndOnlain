@@ -12,6 +12,8 @@ export function createBoard(opts) {
   let draw = { shape: 'pen', color: '#c9a45a', width: 4 };
   let fogBrush = 1;
   let fogMode = 'reveal';       // 'reveal' — открывает местность, 'hide' — возвращает туман
+  let wallKind = 'wall';        // что чертим: 'wall' — стена, 'door' — дверь
+  const visionCache = new Map();
 
   // временные состояния взаимодействия
   let drag = null;         // {type:'pan'|'token'|'ruler'|'draw'|'fog', ...}
@@ -111,8 +113,17 @@ export function createBoard(opts) {
     if (preview) drawStroke(preview, true);
     drawTokens();
     if (l.fogOn) drawFog(W, H, bounds);
+    drawWalls();
     if (ruler) drawRuler();
     if (drag && drag.type === 'fog') drawBrushCursor();
+    if (drag && drag.type === 'wall-new') {
+      const a = w2s(drag.a.x, drag.a.y), b = w2s(drag.b.x, drag.b.y);
+      ctx.save();
+      ctx.strokeStyle = wallKind === 'door' ? '#e0a05a' : '#7fa8c9';
+      ctx.lineWidth = Math.max(3, 6 * view.scale); ctx.lineCap = 'round'; ctx.globalAlpha = .8;
+      ctx.beginPath(); ctx.moveTo(a.x, a.y); ctx.lineTo(b.x, b.y); ctx.stroke();
+      ctx.restore();
+    }
   }
 
   function mapBounds() {
@@ -318,6 +329,101 @@ export function createBoard(opts) {
     ctx.restore();
   }
 
+  /* ── Стены и двери: обзор обрывается о них ──────────────────── */
+
+  const wallsOf = () => { const l = loc(); return (l && l.walls) || []; };
+  /** Что перекрывает обзор: стены всегда, двери — пока закрыты. */
+  const blockers = () => wallsOf().filter((w) => w.type !== 'door' || !w.open);
+
+  /** Насколько далеко луч из точки уходит до отрезка (null — не пересекает). */
+  function rayHit(px, py, dx, dy, s) {
+    const sx = s.x2 - s.x1, sy = s.y2 - s.y1;
+    const den = dx * sy - dy * sx;
+    if (Math.abs(den) < 1e-9) return null;
+    const t = ((s.x1 - px) * sy - (s.y1 - py) * sx) / den;
+    const u = ((s.x1 - px) * dy - (s.y1 - py) * dx) / den;
+    return (t >= 0 && u >= 0 && u <= 1) ? t : null;
+  }
+
+  /** Многоугольник видимости вокруг существа с учётом стен. */
+  function visionShape(t, radius) {
+    const segs = blockers();
+    const sig = `${Math.round(t.x)},${Math.round(t.y)},${Math.round(radius)},${segs.length},`
+      + segs.map((s) => `${s.id}:${Math.round(s.x1)},${Math.round(s.y1)},${Math.round(s.x2)},${Math.round(s.y2)},${s.open ? 1 : 0}`).join('|');
+    const hit = visionCache.get(t.id);
+    if (hit && hit.sig === sig) return hit.pts;
+
+    const N = 180;
+    const pts = [];
+    for (let i = 0; i < N; i++) {
+      const a = (i / N) * Math.PI * 2;
+      const dx = Math.cos(a), dy = Math.sin(a);
+      let best = radius;
+      for (const s of segs) {
+        const d = rayHit(t.x, t.y, dx, dy, s);
+        if (d !== null && d < best) best = d;
+      }
+      pts.push({ x: t.x + dx * best, y: t.y + dy * best });
+    }
+    visionCache.set(t.id, { sig, pts });
+    return pts;
+  }
+
+  /** Стены видит только Мастер: игрокам они просто обрезают обзор. */
+  function drawWalls() {
+    if (!isDM) return;
+    const list = wallsOf();
+    if (!list.length) return;
+    ctx.save();
+    list.forEach((w) => {
+      const a = w2s(w.x1, w.y1), b = w2s(w.x2, w.y2);
+      const isDoor = w.type === 'door';
+      ctx.lineCap = 'round';
+      ctx.lineWidth = Math.max(3, 6 * view.scale);
+      ctx.setLineDash(isDoor && w.open ? [6, 8] : []);
+      ctx.strokeStyle = isDoor ? (w.open ? 'rgba(224,192,99,.5)' : '#e0a05a') : 'rgba(127,168,201,.85)';
+      ctx.beginPath(); ctx.moveTo(a.x, a.y); ctx.lineTo(b.x, b.y); ctx.stroke();
+      ctx.setLineDash([]);
+      if (tool === 'wall') {                       // ручки для перетаскивания
+        [a, b].forEach((p) => {
+          ctx.beginPath(); ctx.arc(p.x, p.y, 5, 0, Math.PI * 2);
+          ctx.fillStyle = '#171613'; ctx.fill();
+          ctx.lineWidth = 2; ctx.strokeStyle = isDoor ? '#e0a05a' : '#7fa8c9'; ctx.stroke();
+        });
+      }
+    });
+    ctx.restore();
+  }
+
+  /** Ближайшая стена под курсором: сначала концы, потом сам отрезок. */
+  function wallAt(w) {
+    const near = 12 / view.scale;
+    const list = wallsOf();
+    for (let i = list.length - 1; i >= 0; i--) {
+      const s = list[i];
+      if (Math.hypot(w.x - s.x1, w.y - s.y1) < near) return { wall: s, part: 'a' };
+      if (Math.hypot(w.x - s.x2, w.y - s.y2) < near) return { wall: s, part: 'b' };
+      if (distToSeg(w, s) < near) return { wall: s, part: 'body' };
+    }
+    return null;
+  }
+  function distToSeg(p, s) {
+    const vx = s.x2 - s.x1, vy = s.y2 - s.y1;
+    const len2 = vx * vx + vy * vy || 1;
+    let u = ((p.x - s.x1) * vx + (p.y - s.y1) * vy) / len2;
+    u = Math.max(0, Math.min(1, u));
+    return Math.hypot(p.x - (s.x1 + u * vx), p.y - (s.y1 + u * vy));
+  }
+  /** Стены липнут к узлам сетки — так их удобно вести по стенам карты. */
+  function snapNode(w, free) {
+    if (free) return { x: w.x, y: w.y };
+    const g = gridOf();
+    return {
+      x: g.ox + Math.round((w.x - g.ox) / g.size) * g.size,
+      y: g.oy + Math.round((w.y - g.oy) / g.size) * g.size,
+    };
+  }
+
   /** Туман: заливаем слой и вырезаем открытые клетки и круги обзора. */
   function drawFog(W, H, b) {
     const l = loc(), g = gridOf();
@@ -341,16 +447,23 @@ export function createBoard(opts) {
     } else {
       f.fillRect(0, 0, W, H);
     }
-    // постоянный обзор вокруг персонажей
+    // постоянный обзор вокруг персонажей — обрывается о стены и закрытые двери
     toksHere().forEach((t) => {
       if (!t.vision) return;
       const p = w2s(t.x, t.y);
-      const rad = (t.vision / g.feet) * g.size * view.scale;
-      const grd = f.createRadialGradient(p.x, p.y, Math.max(0, rad * .7), p.x, p.y, rad);
+      const radWorld = (t.vision / g.feet) * g.size;
+      const rad = radWorld * view.scale;
+      const grd = f.createRadialGradient(p.x, p.y, Math.max(0, rad * .72), p.x, p.y, rad);
       grd.addColorStop(0, 'rgba(0,0,0,1)');
       grd.addColorStop(1, 'rgba(0,0,0,0)');
       f.fillStyle = grd;
-      f.beginPath(); f.arc(p.x, p.y, rad, 0, Math.PI * 2); f.fill();
+      f.beginPath();
+      const shape = visionShape(t, radWorld);
+      shape.forEach((q, i) => {
+        const sp = w2s(q.x, q.y);
+        if (i === 0) f.moveTo(sp.x, sp.y); else f.lineTo(sp.x, sp.y);
+      });
+      f.closePath(); f.fill();
     });
     f.globalCompositeOperation = 'source-over';
     ctx.drawImage(fogLayer, 0, 0, W, H);
@@ -393,6 +506,20 @@ export function createBoard(opts) {
     if (tool === 'draw' && !mid) {
       preview = { id: 'tmp', by: me.id, shape: draw.shape, color: draw.color, width: draw.width, pts: [w] };
       drag = { type: 'draw' }; render(); return;
+    }
+    if (tool === 'wall' && isDM && !mid) {
+      const hitW = wallAt(w);
+      if (e.button === 2 && hitW) {                       // правая кнопка — убрать
+        store.dispatch({ t: 'wall.remove', locId: loc().id, id: hitW.wall.id });
+        return;
+      }
+      if (hitW) {                                          // тянем конец или всю стену
+        drag = { type: 'wall-move', id: hitW.wall.id, part: hitW.part, from: w, start: { ...hitW.wall } };
+        return;
+      }
+      const a = snapNode(w, e.altKey);
+      drag = { type: 'wall-new', a, b: a, free: e.altKey };
+      render(); return;
     }
     if (tool === 'fog' && isDM && !mid) {
       // режим кисти задаётся в панели, Alt или правая кнопка переключают на лету
@@ -446,6 +573,22 @@ export function createBoard(opts) {
     } else if (drag.type === 'fog') {
       drag.last = p;
       paintFog(w, drag.on);
+    } else if (drag.type === 'wall-new') {
+      drag.b = snapNode(w, drag.free || e.altKey);
+      render();
+    } else if (drag.type === 'wall-move') {
+      const s = drag.start;
+      const dx = w.x - drag.from.x, dy = w.y - drag.from.y;
+      const snap = (x, y) => snapNode({ x, y }, e.altKey);
+      let patch;
+      if (drag.part === 'a') { const q = snap(s.x1 + dx, s.y1 + dy); patch = { x1: q.x, y1: q.y }; }
+      else if (drag.part === 'b') { const q = snap(s.x2 + dx, s.y2 + dy); patch = { x2: q.x, y2: q.y }; }
+      else {
+        const q1 = snap(s.x1 + dx, s.y1 + dy);
+        patch = { x1: q1.x, y1: q1.y, x2: q1.x + (s.x2 - s.x1), y2: q1.y + (s.y2 - s.y1) };
+      }
+      drag.moved = true;
+      store.dispatch({ t: 'wall.update', locId: loc().id, id: drag.id, patch });
     }
   }
 
@@ -461,6 +604,19 @@ export function createBoard(opts) {
         const c = cellCenter(t.x, t.y);
         store.dispatch({ t: 'token.update', id: drag.id, patch: { x: c.x, y: c.y } });
         if (!drag.moved) onTokenOpen && onTokenOpen(t, evPos(e));
+      }
+    } else if (drag.type === 'wall-new') {
+      const { a, b } = drag;
+      if (Math.hypot(b.x - a.x, b.y - a.y) > 4) {
+        store.dispatch({
+          t: 'wall.add', locId: loc().id,
+          wall: { id: 'w' + Date.now().toString(36) + Math.random().toString(36).slice(2, 5), type: wallKind, open: false, x1: a.x, y1: a.y, x2: b.x, y2: b.y },
+        });
+      }
+    } else if (drag.type === 'wall-move') {
+      // короткий клик по двери без перетаскивания — открыть или закрыть её
+      if (!drag.moved && drag.start.type === 'door') {
+        store.dispatch({ t: 'wall.update', locId: loc().id, id: drag.id, patch: { open: !drag.start.open } });
       }
     } else if (drag.type === 'tap') {
       const t = drag.id && S().tokens[drag.id];
@@ -556,6 +712,13 @@ export function createBoard(opts) {
     setDraw(patch) { Object.assign(draw, patch); },
     setFogBrush(n) { fogBrush = Math.max(1, n); },
     setFogMode(m) { fogMode = m; },
+    setWallKind(k) { wallKind = k; },
+    /** Для проверок: куда достаёт обзор существа и рисуются ли стены. */
+    visionPoints(t) {
+      const g = gridOf();
+      return visionShape(t, (t.vision / g.feet) * g.size);
+    },
+    drawsWalls: () => isDM,
     screenToWorld: s2w,
     worldToScreen: w2s,
     cellCenter,

@@ -84,9 +84,13 @@
       <button class="tool" data-tool="ruler" title="Линейка">📏</button>
       <button class="tool" data-tool="draw" title="Рисование">✎</button>
       <button class="tool dm-only" data-tool="fog" title="Кисть тумана">☁</button>
+      <button class="tool dm-only" data-tool="wall" title="Невидимые стены и двери">▦</button>
     </div>
 
     <div class="topbar-right">
+      <button class="gem-badge" id="gem-badge" hidden title="Ваше вдохновение">
+        <span class="gem" aria-hidden="true"></span><span class="gem-count" id="gem-count">0</span>
+      </button>
       <button class="btn btn-ghost" id="btn-dice">Кубики</button>
       <button class="btn btn-ghost only-mobile" id="btn-panel">Панели</button>
       <span class="members" id="members"></span>
@@ -205,6 +209,19 @@
         <button class="btn btn-soft btn-sm" id="draw-clear">Стереть мои</button>
       </div>
 
+      <!-- Стены и двери (только Мастер) -->
+      <div class="draw-bar dm-only" id="wall-bar" hidden>
+        <div class="shapes">
+          <button class="shape is-active" data-wallkind="wall">Стена</button>
+          <button class="shape" data-wallkind="door">Дверь</button>
+        </div>
+        <span class="hint">Ведите линию — стена. Клик по двери открывает её, правая кнопка убирает. Alt — без привязки к сетке.</span>
+        <button class="btn btn-soft btn-sm" id="walls-clear">Убрать все</button>
+      </div>
+
+      <!-- Что видит игрок под действием состояния -->
+      <div class="fx-layer" id="fx-layer" aria-hidden="true"></div>
+
       <!-- Доска картинок -->
       <div class="showcase" id="showcase" hidden>
         <div class="showcase-bar">
@@ -227,6 +244,7 @@
         <button class="tab is-active" data-rtab="chat">Чат</button>
         <button class="tab" data-rtab="rolls">Броски</button>
         <button class="tab" data-rtab="init">Ход боя</button>
+        <button class="tab" data-rtab="heroes">Герои</button>
         <button class="tab dm-only" data-rtab="pics">Картинки</button>
       </div>
 
@@ -256,6 +274,12 @@
         <div class="round-line" id="round-line"></div>
         <div class="init-list" id="init-list"></div>
         <p class="hint">Здоровье и состояния — под именем существа.</p>
+      </section>
+
+      <section class="panel-body" data-rpanel="heroes" hidden>
+        <h3 class="h-sm">Вдохновение</h3>
+        <div class="heroes" id="heroes-list"></div>
+        <p class="hint">Вдохновение выдаёт и забирает только Мастер.</p>
       </section>
 
       <section class="panel-body dm-only" data-rpanel="pics" hidden>

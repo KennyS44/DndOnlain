@@ -2,7 +2,7 @@
 
 import { createSync } from './sync.js';
 import { FIREBASE, useFirebase } from './firebase-config.js';
-import { createStore, emptyState, newLocation, newToken, normalize, uid, STATUSES } from './store.js';
+import { createStore, emptyState, newLocation, newToken, normalize, uid, STATUSES, STATUS_FX } from './store.js';
 import { createBoard } from './board.js';
 import { DICE, roll, playAnimation } from './dice.js';
 
@@ -156,6 +156,9 @@ function start(sync, state, me) {
     onViewChange: (v) => { $('#zoom-val').textContent = Math.round(v.scale * 100) + '%'; },
   });
 
+  // роль выяснилась только сейчас — поправим запись о себе в списке присутствия
+  if (app.sync.updateMe) app.sync.updateMe({ role: me.role, name: me.name });
+
   const firstTime = !app.store.get().roster[nameKey(me.name)];
   app.store.dispatch({
     t: 'roster.seen',
@@ -254,6 +257,8 @@ function renderAll(s, action) {
   renderInit(s);
   renderPics(s);
   renderMembers();
+  renderHeroes(s);
+  renderStatusFx(s);
   const loc = s.activeLoc ? s.locations[s.activeLoc] : null;
   $('#loc-title').textContent = loc ? loc.name : '';
   $('#empty-hint').hidden = !!loc;
@@ -398,7 +403,7 @@ function renderInit(s) {
         const b = el('button', 'status' + (on ? ' on' : ''), name);
         b.addEventListener('click', () => {
           const next = on ? t.statuses.filter((x) => x !== name) : [...(t.statuses || []), name];
-          app.store.dispatch({ t: 'token.update', id: t.id, patch: { statuses: next } });
+          app.store.dispatch({ t: 'token.status', id: t.id, statuses: next });
         });
         st.append(b);
       });
@@ -443,6 +448,86 @@ function updateShowcase(s) {
   if (showcaseHiddenFor === id) { box.hidden = true; chip.hidden = false; return; }
   chip.hidden = true;
   assetUrl(id).then((u) => { if (u) { img.src = u; box.hidden = false; } });
+}
+
+/* ───────────────────────── Вдохновение ───────────────────────── */
+
+const inspOf = (s, key) => (s.inspiration && s.inspiration[key]) || 0;
+let gemShown = null;
+
+/** Список героев со счётчиком вдохновения: ± только у Мастера. */
+function renderHeroes(s) {
+  const box = $('#heroes-list');
+  if (!box) return;
+  box.innerHTML = '';
+  const people = participants().filter((m) => m.role !== 'dm');
+  if (!people.length) {
+    box.append(el('p', 'hint', 'Игроки ещё не заходили за стол.'));
+  }
+  people.forEach((m) => {
+    const n = inspOf(s, m.key);
+    const row = el('div', 'hero-row' + (m.key === nameKey(app.me.name) ? ' is-me' : ''));
+    row.append(el('span', 'who', m.name));
+    if (!m.online) row.append(el('span', 'off', 'не в сети'));
+
+    const gems = el('div', 'hero-gems');
+    if (app.isDM) gems.append(stepBtn('−', () => setInsp(m.key, n - 1)));
+    gems.append(el('span', 'gem'), el('span', 'n', String(n)));
+    if (app.isDM) gems.append(stepBtn('+', () => setInsp(m.key, n + 1)));
+    row.append(gems);
+    box.append(row);
+  });
+
+  // свой самоцвет — всегда на виду, у Мастера его нет
+  const badge = $('#gem-badge');
+  const mine = inspOf(s, nameKey(app.me.name));
+  badge.hidden = app.isDM;
+  if (!app.isDM) {
+    $('#gem-count').textContent = mine;
+    badge.classList.toggle('is-empty', mine === 0);
+    badge.title = mine ? `Вдохновение: ${mine}` : 'Вдохновения пока нет';
+    if (gemShown !== null && gemShown !== mine) {
+      badge.classList.remove('is-changed');
+      void badge.offsetWidth;                 // перезапуск анимации
+      badge.classList.add('is-changed');
+      setTimeout(() => badge.classList.remove('is-changed'), 900);
+    }
+    gemShown = mine;
+  }
+}
+function stepBtn(label, onClick) {
+  const b = el('button', 'hero-btn', label);
+  b.addEventListener('click', onClick);
+  return b;
+}
+function setInsp(key, value) {
+  app.store.dispatch({ t: 'insp.set', key, value: Math.max(0, Math.min(99, value)) });
+}
+
+/* ───────────────── Эффекты состояний на игровом поле ───────────────── */
+
+let fxNow = '';
+function renderStatusFx(s) {
+  const layer = $('#fx-layer');
+  if (!layer) return;
+  // берём состояния своих персонажей: Мастеру поле не застилаем
+  const mine = app.isDM ? [] : Object.values(s.tokens)
+    .filter((t) => nameKey(t.ownerName) === nameKey(app.me.name))
+    .flatMap((t) => t.statuses || []);
+  const list = [...new Set(mine)].filter((n) => STATUS_FX[n]);
+  const key = list.join('|');
+  if (key === fxNow) return;
+  fxNow = key;
+
+  layer.innerHTML = '';
+  if (!list.length) return;
+  list.forEach((name) => {
+    const d = el('div', 'fx fx-' + STATUS_FX[name]);
+    layer.append(d);
+  });
+  const label = el('div', 'fx-label');
+  list.forEach((name) => label.append(el('span', '', name)));
+  layer.append(label);
 }
 
 /** Все, кого знает стол: кто сейчас в сети + кто заходил раньше, без дублей по имени. */
@@ -675,6 +760,8 @@ function wireUI() {
     $$('#toolbar .tool').forEach((x) => x.classList.toggle('is-active', x === b));
     app.board.setTool(b.dataset.tool);
     $('#draw-bar').hidden = b.dataset.tool !== 'draw';
+    const wb = $('#wall-bar');
+    if (wb) wb.hidden = b.dataset.tool !== 'wall';
     $('#token-card').hidden = true;
   }));
 
@@ -811,6 +898,18 @@ function wireDM() {
   $('#fog-hide-all').addEventListener('click', () => {
     const id = app.store.get().activeLoc;
     if (id) app.store.dispatch({ t: 'fog.all', locId: id, open: false });
+  });
+
+  $$('[data-wallkind]').forEach((b) => b.addEventListener('click', () => {
+    $$('[data-wallkind]').forEach((x) => x.classList.toggle('is-active', x === b));
+    app.board.setWallKind(b.dataset.wallkind);
+  }));
+  $('#walls-clear').addEventListener('click', () => {
+    const s = app.store.get();
+    const loc = s.locations[s.activeLoc];
+    if (!loc || !(loc.walls || []).length) return;
+    if (!confirm(`Убрать все стены и двери в локации «${loc.name}»?`)) return;
+    loc.walls.forEach((w) => app.store.dispatch({ t: 'wall.remove', locId: loc.id, id: w.id }));
   });
 
   $('#lib-upload').addEventListener('change', async (e) => {

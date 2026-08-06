@@ -342,6 +342,127 @@ em{color:var(--muted); font-style:normal; font-size:14px}
 }
 .showcase-chip:hover{background:#332f27}
 
+/* ── Самоцвет вдохновения ────────────────────────────────────────── */
+.gem-badge{
+  display:inline-flex; align-items:center; gap:var(--s2); min-height:44px;
+  padding:0 var(--s3) 0 var(--s2); border-radius:999px; cursor:default;
+  border:1px solid var(--gold-dim); background:linear-gradient(180deg,#2b2620,#221e18);
+  color:var(--gold); box-shadow:inset 0 1px 0 rgba(224,192,99,.15);
+}
+.gem-count{font-family:var(--f-head); font-size:20px; min-width:14px; text-align:center}
+.gem{
+  position:relative; width:26px; height:26px; flex:0 0 26px;
+  background:conic-gradient(from 90deg,#f6e3a8,#c9a45a 25%,#8d7440 50%,#e6cf92 75%,#f6e3a8);
+  clip-path:polygon(50% 0%,86% 26%,100% 62%,50% 100%,0% 62%,14% 26%);
+  filter:drop-shadow(0 0 6px rgba(224,192,99,.5));
+}
+.gem::after{                     /* блик по грани */
+  content:''; position:absolute; inset:0;
+  background:linear-gradient(150deg,rgba(255,255,255,.75) 0 18%,transparent 42%),
+             linear-gradient(20deg,transparent 55%,rgba(255,255,255,.35) 70%,transparent 80%);
+  clip-path:inherit;
+}
+.gem-badge.is-empty{border-color:var(--line); color:var(--muted); background:var(--panel-2)}
+.gem-badge.is-empty .gem{background:#3a352c; filter:none}
+.gem-badge.is-empty .gem::after{opacity:.25}
+@keyframes gem-pop{
+  0%{transform:scale(1)} 35%{transform:scale(1.35) rotate(-8deg)} 100%{transform:scale(1)}
+}
+.gem-badge.is-changed .gem{animation:gem-pop .55s var(--ease)}
+.gem-badge.is-changed{box-shadow:0 0 0 3px rgba(224,192,99,.28), inset 0 1px 0 rgba(224,192,99,.2)}
+
+.heroes{display:flex; flex-direction:column; gap:var(--s2)}
+.hero-row{
+  display:flex; align-items:center; gap:var(--s3); padding:var(--s2) var(--s3);
+  border:1px solid var(--line-soft); border-radius:var(--r); background:var(--bg-2);
+}
+.hero-row.is-me{border-color:var(--gold-dim); background:#241f18}
+.hero-row .who{flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font-size:16px}
+.hero-row .off{color:var(--muted); font-size:14px}
+.hero-gems{display:flex; align-items:center; gap:var(--s2)}
+.hero-gems .gem{width:22px; height:22px; flex-basis:22px}
+.hero-gems .n{font-family:var(--f-head); font-size:20px; color:var(--gold); min-width:16px; text-align:center}
+.hero-btn{
+  width:32px; height:32px; border-radius:50%; border:1px solid var(--line);
+  background:var(--panel-2); color:var(--text); cursor:pointer; font-size:16px; line-height:1;
+}
+.hero-btn:hover{border-color:var(--gold); color:var(--gold)}
+
+/* ── Что видит игрок под действием состояния (только поле) ───────── */
+.fx-layer{position:absolute; inset:0; z-index:14; pointer-events:none; overflow:hidden}
+.fx{position:absolute; inset:0; animation:fx-in .5s var(--ease) both}
+@keyframes fx-in{from{opacity:0} to{opacity:1}}
+
+/* Ослеплён — белая пелена */
+.fx-blind{background:rgba(247,245,238,.97)}
+/* Без сознания — почти чернота с узкой щелью и пульсом */
+.fx-down{background:radial-gradient(120% 18% at 50% 50%, rgba(0,0,0,.35) 0 40%, rgba(0,0,0,.985) 78%);
+  animation:fx-in .5s var(--ease) both, fx-pulse 2.6s ease-in-out infinite}
+@keyframes fx-pulse{0%,100%{opacity:1} 50%{opacity:.88}}
+/* Испуган — темнота и трещины по краям */
+.fx-fear{background:radial-gradient(circle at 50% 50%, transparent 34%, rgba(4,3,6,.9) 92%);
+  animation:fx-in .5s var(--ease) both, fx-shake 5s ease-in-out infinite}
+.fx-fear::after{
+  content:''; position:absolute; inset:0; opacity:.75;
+  background:
+    linear-gradient(72deg, transparent 48.6%, rgba(210,215,235,.5) 49%, transparent 49.4%) left top/52% 62% no-repeat,
+    linear-gradient(-58deg, transparent 48.6%, rgba(210,215,235,.42) 49%, transparent 49.4%) right top/46% 54% no-repeat,
+    linear-gradient(28deg, transparent 48.8%, rgba(210,215,235,.38) 49%, transparent 49.3%) left bottom/58% 50% no-repeat,
+    linear-gradient(-14deg, transparent 48.8%, rgba(210,215,235,.34) 49%, transparent 49.3%) right bottom/44% 44% no-repeat;
+}
+.fx-fear::before{               /* ответвления трещин — тоньше и тусклее */
+  content:''; position:absolute; inset:0; opacity:.45;
+  background:
+    linear-gradient(96deg, transparent 49.2%, rgba(210,215,235,.4) 49.5%, transparent 49.8%) left 18% top 6%/26% 34% no-repeat,
+    linear-gradient(-36deg, transparent 49.2%, rgba(210,215,235,.34) 49.5%, transparent 49.8%) right 12% top 22%/24% 26% no-repeat,
+    linear-gradient(52deg, transparent 49.2%, rgba(210,215,235,.3) 49.5%, transparent 49.8%) left 8% bottom 14%/30% 24% no-repeat,
+    linear-gradient(-72deg, transparent 49.2%, rgba(210,215,235,.28) 49.5%, transparent 49.8%) right 22% bottom 8%/22% 30% no-repeat;
+}
+@keyframes fx-shake{0%,92%,100%{transform:translate(0,0)} 94%{transform:translate(-3px,2px)} 96%{transform:translate(3px,-2px)} 98%{transform:translate(-2px,-1px)}}
+/* Отравлен — зелёная дымка и медленная волна */
+.fx-poison{background:radial-gradient(circle at 50% 55%, rgba(90,150,70,.16) 20%, rgba(52,96,44,.62) 95%);
+  backdrop-filter:hue-rotate(38deg) saturate(1.25) blur(.6px);
+  animation:fx-in .5s var(--ease) both, fx-breathe 5.5s ease-in-out infinite}
+@keyframes fx-breathe{0%,100%{opacity:.85; transform:scale(1)} 50%{opacity:1; transform:scale(1.02)}}
+/* Оглушён — двоение, расфокус и звон по краям */
+.fx-stun{backdrop-filter:blur(3px); background:radial-gradient(circle at 50% 50%, transparent 52%, rgba(255,255,255,.22) 100%);
+  animation:fx-in .5s var(--ease) both, fx-sway 3.4s ease-in-out infinite}
+.fx-stun::after{content:''; position:absolute; inset:0; backdrop-filter:blur(2px); opacity:.5;
+  transform:translate(6px,-4px)}
+@keyframes fx-sway{0%,100%{transform:translate(0,0) rotate(0)} 50%{transform:translate(4px,3px) rotate(.35deg)}}
+/* Обездвижен — серость и каменные оковы от краёв */
+.fx-hold{backdrop-filter:grayscale(.85) contrast(.9);
+  background:
+    linear-gradient(180deg, rgba(58,53,44,.95) 0 6%, transparent 22%),
+    linear-gradient(0deg, rgba(58,53,44,.95) 0 6%, transparent 22%),
+    linear-gradient(90deg, rgba(58,53,44,.95) 0 5%, transparent 20%),
+    linear-gradient(270deg, rgba(58,53,44,.95) 0 5%, transparent 20%);
+}
+/* Благословлён — тёплое золото и искры */
+.fx-bless{background:radial-gradient(circle at 50% 50%, transparent 55%, rgba(224,192,99,.28) 100%);
+  animation:fx-in .5s var(--ease) both, fx-glow 4s ease-in-out infinite}
+.fx-bless::after{
+  content:''; position:absolute; inset:0; opacity:.55;
+  background:radial-gradient(2px 2px at 20% 30%, #f6e3a8, transparent 60%),
+             radial-gradient(2px 2px at 72% 22%, #f6e3a8, transparent 60%),
+             radial-gradient(2px 2px at 44% 76%, #f6e3a8, transparent 60%),
+             radial-gradient(1.5px 1.5px at 84% 64%, #f6e3a8, transparent 60%);
+  animation:fx-glow 3s ease-in-out infinite alternate;
+}
+@keyframes fx-glow{0%,100%{opacity:.5} 50%{opacity:1}}
+
+.fx-label{
+  position:absolute; left:50%; bottom:var(--s4); transform:translateX(-50%);
+  display:flex; gap:var(--s2); flex-wrap:wrap; justify-content:center; max-width:90%;
+}
+.fx-label span{
+  font-size:14px; padding:var(--s1) var(--s3); border-radius:999px;
+  background:rgba(23,22,19,.85); border:1px solid var(--line); color:var(--text);
+}
+@media (prefers-reduced-motion:reduce){
+  .fx, .fx::after{animation-duration:.01ms !important; animation-iteration-count:1 !important}
+}
+
 /* ── Карточка токена ─────────────────────────────────────────────── */
 .token-card{
   position:absolute; z-index:25; width:250px; max-width:calc(100% - 16px);

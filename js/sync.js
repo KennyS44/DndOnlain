@@ -12,9 +12,10 @@ export async function createSync(roomId, me) {
   const chan = new BroadcastChannel('dndonlain:' + roomId);
   const handlers = { action: [], event: [], presence: [] };
   const peers = new Map();          // id -> {id, name, role, at}
+  let who = { ...me };
   let saveTimer = null;
 
-  peers.set(me.id, { ...me, at: Date.now() });
+  peers.set(me.id, { ...who, at: Date.now() });
 
   chan.onmessage = (e) => {
     const m = e.data;
@@ -25,7 +26,7 @@ export async function createSync(roomId, me) {
       peers.set(m.payload.id, { ...m.payload, at: Date.now() });
       pushPresence();
       // отвечаем новичку, чтобы он тоже нас увидел
-      if (m.payload.reply !== false) post('hello', { ...me, reply: false });
+      if (m.payload.reply !== false) post('hello', { ...who, reply: false });
     } else if (m.kind === 'bye') {
       peers.delete(m.payload.id);
       pushPresence();
@@ -44,10 +45,10 @@ export async function createSync(roomId, me) {
     emitLocal('presence', live);
   }
 
-  post('hello', { ...me });
+  post('hello', { ...who });
   setInterval(() => {
-    peers.set(me.id, { ...me, at: Date.now() });
-    post('hello', { ...me, reply: false });
+    peers.set(me.id, { ...who, at: Date.now() });
+    post('hello', { ...who, reply: false });
     pushPresence();
   }, HEARTBEAT);
   window.addEventListener('pagehide', () => post('bye', { id: me.id }));
@@ -55,6 +56,14 @@ export async function createSync(roomId, me) {
   return {
     mode: 'local',
     on(type, fn) { handlers[type].push(fn); },
+
+    /** Уточнить, кто мы за столом (роль выясняется после входа). */
+    updateMe(patch) {
+      who = { ...who, ...patch };
+      peers.set(me.id, { ...who, at: Date.now() });
+      post('hello', { ...who, reply: false });
+      pushPresence();
+    },
 
     /** Действие, меняющее состояние комнаты у всех. */
     send(action) { post('action', action); },

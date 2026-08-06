@@ -1,7 +1,13 @@
 // Единое состояние комнаты + чистый редьюсер.
 // Любое изменение проходит через dispatch: применяется у себя и уходит остальным.
 
-export const STATUSES = ['Отравлен', 'Оглушён', 'Испуган', 'Обездвижен', 'Без сознания', 'Благословлён'];
+export const STATUSES = ['Отравлен', 'Оглушён', 'Испуган', 'Обездвижен', 'Без сознания', 'Благословлён', 'Ослеплён'];
+
+/** Ключ состояния для оформления эффекта на экране игрока. */
+export const STATUS_FX = {
+  'Отравлен': 'poison', 'Оглушён': 'stun', 'Испуган': 'fear', 'Обездвижен': 'hold',
+  'Без сознания': 'down', 'Благословлён': 'bless', 'Ослеплён': 'blind',
+};
 
 export function emptyState(room) {
   return {
@@ -11,6 +17,7 @@ export function emptyState(room) {
     order: [],                  // порядок локаций
     activeLoc: null,
     library: {},                // id -> {id, name, kind, assetId}
+    inspiration: {},            // ключ имени -> сколько вдохновений
     tokens: {},                 // id -> токен
     init: { order: [], idx: 0, round: 1 },
     chat: [],                   // {id, ts, by, name, kind, text, roll, secret}
@@ -44,6 +51,7 @@ export function normalize(raw) {
   s.library = s.library || {};
   s.locations = s.locations || {};
   s.tokens = s.tokens || {};
+  s.inspiration = s.inspiration || {};
   s.pics = { assets: [], shown: null, ...(s.pics || {}) };
   s.pics.assets = s.pics.assets || [];
   s.init = { order: [], idx: 0, round: 1, ...(s.init || {}) };
@@ -143,6 +151,13 @@ export function reduce(s, a) {
       s.tokens = { ...s.tokens, [a.id]: deepMerge(cur, a.patch) };
       break;
     }
+    // Отдельное действие: база не хранит пустые массивы, поэтому «состояний
+    // больше нет» доезжает только как отсутствующее поле — здесь это нормально.
+    case 'token.status': {
+      const cur = s.tokens[a.id]; if (!cur) break;
+      s.tokens = { ...s.tokens, [a.id]: { ...cur, statuses: a.statuses || [] } };
+      break;
+    }
     case 'token.remove': {
       const next = { ...s.tokens }; delete next[a.id]; s.tokens = next;
       s.init = { ...s.init, order: s.init.order.filter((o) => o.id !== a.id) };
@@ -161,6 +176,28 @@ export function reduce(s, a) {
       s.locations = { ...s.locations, [a.locId]: { ...loc, fog: {}, fogAllOpen: !!a.open } };
       break;
     }
+
+    case 'wall.add': {
+      const loc = s.locations[a.locId]; if (!loc) break;
+      s.locations = { ...s.locations, [a.locId]: { ...loc, walls: [...(loc.walls || []), a.wall] } };
+      break;
+    }
+    case 'wall.update': {
+      const loc = s.locations[a.locId]; if (!loc) break;
+      const walls = (loc.walls || []).map((w) => (w.id === a.id ? { ...w, ...a.patch } : w));
+      s.locations = { ...s.locations, [a.locId]: { ...loc, walls } };
+      break;
+    }
+    case 'wall.remove': {
+      const loc = s.locations[a.locId]; if (!loc) break;
+      const walls = (loc.walls || []).filter((w) => a.id ? w.id !== a.id : false);
+      s.locations = { ...s.locations, [a.locId]: { ...loc, walls } };
+      break;
+    }
+
+    case 'insp.set':
+      s.inspiration = { ...(s.inspiration || {}), [a.key]: Math.max(0, Math.min(99, a.value)) };
+      break;
 
     case 'draw.add': {
       const loc = s.locations[a.locId]; if (!loc) break;
@@ -184,7 +221,7 @@ export function reduce(s, a) {
       break;
 
     case 'init.set':
-      s.init = { ...s.init, order: a.order, idx: 0, round: 1 }; break;
+      s.init = { ...s.init, order: a.order || [], idx: 0, round: 1 }; break;
     case 'init.next': {
       const n = s.init.order.length; if (!n) break;
       const idx = (s.init.idx + 1) % n;
@@ -211,7 +248,7 @@ export function reduce(s, a) {
 
 function deepMerge(base, patch) {
   const out = { ...base };
-  for (const [k, v] of Object.entries(patch)) {
+  for (const [k, v] of Object.entries(patch || {})) {
     out[k] = v && typeof v === 'object' && !Array.isArray(v) && base[k] && typeof base[k] === 'object' && !Array.isArray(base[k])
       ? deepMerge(base[k], v) : v;
   }

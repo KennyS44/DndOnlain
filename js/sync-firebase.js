@@ -59,11 +59,13 @@ export async function createFirebaseSync(roomPath, me, cfg) {
     emitLocal('event', v.e);
   });
 
-  // присутствие
+  // присутствие. Роль уточняется уже после подключения (ключ Мастера проверяется
+  // по загруженному состоянию), поэтому запись о себе умеет обновляться.
+  let who = { ...me };
   const mine = R('presence/' + me.id);
   db.onDisconnect(mine).remove();
-  db.set(mine, { ...me, at: Date.now() });
-  setInterval(() => db.set(mine, { ...me, at: Date.now() }), 20000);
+  db.set(mine, { ...who, at: Date.now() });
+  setInterval(() => db.set(mine, { ...who, at: Date.now() }), 20000);
   db.onValue(R('presence'), (snap) => {
     peers = Object.values(snap.val() || {});
     emitLocal('presence', peers);
@@ -84,6 +86,12 @@ export async function createFirebaseSync(roomPath, me, cfg) {
     on(type, fn) { handlers[type].push(fn); },
 
     stats: () => ({ ...stats }),
+
+    /** Уточнить, кто мы за столом (роль выясняется после входа). */
+    updateMe(patch) {
+      who = { ...who, ...patch };
+      db.set(mine, { ...who, at: Date.now() });
+    },
 
     send(a) {
       const row = { from: me.id, ts: Date.now(), a: clean(a) };
