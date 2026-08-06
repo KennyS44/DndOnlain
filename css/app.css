@@ -148,6 +148,7 @@ em{color:var(--muted); font-style:normal; font-size:14px}
 #board.is-drag{cursor:grabbing}
 #board.is-ruler,#board.is-draw,#board.is-fog{cursor:crosshair}
 #board.is-token{cursor:pointer}
+#board.on-door{cursor:pointer}
 
 .board-hud{
   position:absolute; top:var(--s3); left:var(--s3); right:var(--s3);
@@ -350,21 +351,20 @@ em{color:var(--muted); font-style:normal; font-size:14px}
   color:var(--gold); box-shadow:inset 0 1px 0 rgba(224,192,99,.15);
 }
 .gem-count{font-family:var(--f-head); font-size:20px; min-width:14px; text-align:center}
+.svg-sprite{position:absolute; width:0; height:0; overflow:hidden}
 .gem{
-  position:relative; width:26px; height:26px; flex:0 0 26px;
-  background:conic-gradient(from 90deg,#f6e3a8,#c9a45a 25%,#8d7440 50%,#e6cf92 75%,#f6e3a8);
-  clip-path:polygon(50% 0%,86% 26%,100% 62%,50% 100%,0% 62%,14% 26%);
-  filter:drop-shadow(0 0 6px rgba(224,192,99,.5));
+  position:relative; width:26px; height:28px; flex:0 0 26px; display:block;
+  filter:drop-shadow(0 0 7px rgba(224,192,99,.55));
 }
-.gem::after{                     /* блик по грани */
-  content:''; position:absolute; inset:0;
-  background:linear-gradient(150deg,rgba(255,255,255,.75) 0 18%,transparent 42%),
-             linear-gradient(20deg,transparent 55%,rgba(255,255,255,.35) 70%,transparent 80%);
-  clip-path:inherit;
+.gem-svg{width:100%; height:100%; display:block}
+.gem::after{                     /* холодный блик по верхней грани */
+  content:''; position:absolute; left:18%; top:4%; width:44%; height:26%;
+  background:linear-gradient(120deg, rgba(255,255,255,.85), transparent 70%);
+  transform:skewX(-12deg); border-radius:2px; pointer-events:none;
 }
+.gem.is-dim, .gem-badge.is-empty .gem{filter:grayscale(.9) brightness(.5)}
+.gem.is-dim::after, .gem-badge.is-empty .gem::after{opacity:.2}
 .gem-badge.is-empty{border-color:var(--line); color:var(--muted); background:var(--panel-2)}
-.gem-badge.is-empty .gem{background:#3a352c; filter:none}
-.gem-badge.is-empty .gem::after{opacity:.25}
 @keyframes gem-pop{
   0%{transform:scale(1)} 35%{transform:scale(1.35) rotate(-8deg)} 100%{transform:scale(1)}
 }
@@ -373,10 +373,20 @@ em{color:var(--muted); font-style:normal; font-size:14px}
 
 .heroes{display:flex; flex-direction:column; gap:var(--s2)}
 .hero-row{
-  display:flex; align-items:center; gap:var(--s3); padding:var(--s2) var(--s3);
-  border:1px solid var(--line-soft); border-radius:var(--r); background:var(--bg-2);
+  position:relative; display:flex; align-items:center; gap:var(--s3);
+  padding:var(--s2) var(--s3); border:1px solid var(--line-soft); border-radius:var(--r);
+  background:
+    radial-gradient(120% 140% at 0% 0%, rgba(201,164,90,.07), transparent 60%),
+    repeating-linear-gradient(101deg, rgba(255,255,255,.014) 0 3px, transparent 3px 7px),
+    linear-gradient(180deg, #221f19, #1b1915);
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.04);
 }
-.hero-row.is-me{border-color:var(--gold-dim); background:#241f18}
+.hero-row::before{                 /* золотая насечка слева, как на переплёте */
+  content:''; position:absolute; left:0; top:12%; bottom:12%; width:3px; border-radius:2px;
+  background:linear-gradient(180deg, transparent, var(--gold-dim), transparent);
+}
+.hero-row.is-me{border-color:var(--gold-dim)}
+.hero-row.is-me::before{background:linear-gradient(180deg, transparent, var(--gold), transparent)}
 .hero-row .who{flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font-size:16px}
 .hero-row .off{color:var(--muted); font-size:14px}
 .hero-gems{display:flex; align-items:center; gap:var(--s2)}
@@ -402,21 +412,16 @@ em{color:var(--muted); font-style:normal; font-size:14px}
 /* Испуган — темнота и трещины по краям */
 .fx-fear{background:radial-gradient(circle at 50% 50%, transparent 34%, rgba(4,3,6,.9) 92%);
   animation:fx-in .5s var(--ease) both, fx-shake 5s ease-in-out infinite}
-.fx-fear::after{
-  content:''; position:absolute; inset:0; opacity:.75;
-  background:
-    linear-gradient(72deg, transparent 48.6%, rgba(210,215,235,.5) 49%, transparent 49.4%) left top/52% 62% no-repeat,
-    linear-gradient(-58deg, transparent 48.6%, rgba(210,215,235,.42) 49%, transparent 49.4%) right top/46% 54% no-repeat,
-    linear-gradient(28deg, transparent 48.8%, rgba(210,215,235,.38) 49%, transparent 49.3%) left bottom/58% 50% no-repeat,
-    linear-gradient(-14deg, transparent 48.8%, rgba(210,215,235,.34) 49%, transparent 49.3%) right bottom/44% 44% no-repeat;
-}
-.fx-fear::before{               /* ответвления трещин — тоньше и тусклее */
-  content:''; position:absolute; inset:0; opacity:.45;
-  background:
-    linear-gradient(96deg, transparent 49.2%, rgba(210,215,235,.4) 49.5%, transparent 49.8%) left 18% top 6%/26% 34% no-repeat,
-    linear-gradient(-36deg, transparent 49.2%, rgba(210,215,235,.34) 49.5%, transparent 49.8%) right 12% top 22%/24% 26% no-repeat,
-    linear-gradient(52deg, transparent 49.2%, rgba(210,215,235,.3) 49.5%, transparent 49.8%) left 8% bottom 14%/30% 24% no-repeat,
-    linear-gradient(-72deg, transparent 49.2%, rgba(210,215,235,.28) 49.5%, transparent 49.8%) right 22% bottom 8%/22% 30% no-repeat;
+.fx-fear::after{                /* рисованные трещины от углов, ветвятся внутрь */
+  content:''; position:absolute; inset:0; opacity:.9;
+  background-repeat:no-repeat;
+  background-position:left top, right top, left bottom, right bottom;
+  background-size:58% 64%, 50% 58%, 54% 56%, 48% 52%;
+  background-image:
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100' preserveAspectRatio='none'%3E%3Cg fill='none' stroke='%23dfe4f2' stroke-opacity='.5' stroke-width='.45' stroke-linecap='round'%3E%3Cpath d='M0 0 L27 21 L21 34 L40 47 L34 63 L54 79'/%3E%3Cpath d='M27 21 L45 15 M21 34 L7 41 M40 47 L56 41 M34 63 L19 71' stroke-width='.25'/%3E%3C/g%3E%3C/svg%3E"),
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100' preserveAspectRatio='none'%3E%3Cg fill='none' stroke='%23dfe4f2' stroke-opacity='.44' stroke-width='.45' stroke-linecap='round'%3E%3Cpath d='M100 0 L73 19 L81 33 L61 45 L69 61 L47 75'/%3E%3Cpath d='M73 19 L57 11 M81 33 L96 43 M61 45 L45 39 M69 61 L85 69' stroke-width='.25'/%3E%3C/g%3E%3C/svg%3E"),
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100' preserveAspectRatio='none'%3E%3Cg fill='none' stroke='%23dfe4f2' stroke-opacity='.38' stroke-width='.45' stroke-linecap='round'%3E%3Cpath d='M0 100 L25 77 L19 63 L41 51 L35 35 L57 21'/%3E%3Cpath d='M25 77 L41 87 M19 63 L5 55 M41 51 L57 61 M35 35 L21 27' stroke-width='.25'/%3E%3C/g%3E%3C/svg%3E"),
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100' preserveAspectRatio='none'%3E%3Cg fill='none' stroke='%23dfe4f2' stroke-opacity='.34' stroke-width='.45' stroke-linecap='round'%3E%3Cpath d='M100 100 L75 79 L83 65 L63 53 L71 37 L49 23'/%3E%3Cpath d='M75 79 L59 89 M83 65 L97 57 M63 53 L47 61 M71 37 L87 29' stroke-width='.25'/%3E%3C/g%3E%3C/svg%3E");
 }
 @keyframes fx-shake{0%,92%,100%{transform:translate(0,0)} 94%{transform:translate(-3px,2px)} 96%{transform:translate(3px,-2px)} 98%{transform:translate(-2px,-1px)}}
 /* Отравлен — зелёная дымка и медленная волна */
@@ -424,29 +429,52 @@ em{color:var(--muted); font-style:normal; font-size:14px}
   backdrop-filter:hue-rotate(38deg) saturate(1.25) blur(.6px);
   animation:fx-in .5s var(--ease) both, fx-breathe 5.5s ease-in-out infinite}
 @keyframes fx-breathe{0%,100%{opacity:.85; transform:scale(1)} 50%{opacity:1; transform:scale(1.02)}}
+.fx-poison::after{                /* тяжёлые сгустки по краям */
+  content:''; position:absolute; inset:0; opacity:.5;
+  background:
+    radial-gradient(38% 26% at 8% 22%, rgba(126,186,96,.55), transparent 70%),
+    radial-gradient(30% 22% at 92% 34%, rgba(102,160,78,.5), transparent 70%),
+    radial-gradient(34% 24% at 26% 88%, rgba(126,186,96,.45), transparent 70%),
+    radial-gradient(28% 20% at 78% 82%, rgba(96,150,74,.45), transparent 70%);
+  animation:fx-breathe 7s ease-in-out infinite reverse;
+}
 /* Оглушён — двоение, расфокус и звон по краям */
 .fx-stun{backdrop-filter:blur(3px); background:radial-gradient(circle at 50% 50%, transparent 52%, rgba(255,255,255,.22) 100%);
   animation:fx-in .5s var(--ease) both, fx-sway 3.4s ease-in-out infinite}
 .fx-stun::after{content:''; position:absolute; inset:0; backdrop-filter:blur(2px); opacity:.5;
   transform:translate(6px,-4px)}
 @keyframes fx-sway{0%,100%{transform:translate(0,0) rotate(0)} 50%{transform:translate(4px,3px) rotate(.35deg)}}
-/* Обездвижен — серость и каменные оковы от краёв */
-.fx-hold{backdrop-filter:grayscale(.85) contrast(.9);
-  background:
-    linear-gradient(180deg, rgba(58,53,44,.95) 0 6%, transparent 22%),
-    linear-gradient(0deg, rgba(58,53,44,.95) 0 6%, transparent 22%),
-    linear-gradient(90deg, rgba(58,53,44,.95) 0 5%, transparent 20%),
-    linear-gradient(270deg, rgba(58,53,44,.95) 0 5%, transparent 20%);
+/* Обездвижен — серость и каменные зубья, наползающие от краёв */
+.fx-hold{backdrop-filter:grayscale(.85) contrast(.92)}
+.fx-hold::before{
+  content:''; position:absolute; inset:0;
+  background:linear-gradient(180deg, rgba(28,26,22,.6), transparent 26%, transparent 74%, rgba(28,26,22,.6)),
+             linear-gradient(90deg, rgba(28,26,22,.55), transparent 20%, transparent 80%, rgba(28,26,22,.55));
+}
+.fx-hold::after{
+  content:''; position:absolute; inset:0;
+  background-repeat:no-repeat;
+  background-position:top center, bottom center, left center, right center;
+  background-size:100% 11%, 100% 11%, 9% 100%, 9% 100%;
+  background-image:
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 120 30' preserveAspectRatio='none'%3E%3Cpath d='M0 0 H120 V12 L110 22 L100 10 L90 24 L80 11 L70 21 L60 9 L50 23 L40 12 L30 20 L20 10 L10 19 L0 11 Z' fill='%233b362d'/%3E%3Cpath d='M0 0 H120 V5 H0 Z' fill='%234b4438'/%3E%3C/svg%3E"),
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 120 30' preserveAspectRatio='none'%3E%3Cpath d='M0 30 H120 V18 L110 8 L100 20 L90 6 L80 19 L70 9 L60 21 L50 7 L40 18 L30 10 L20 20 L10 11 L0 19 Z' fill='%233b362d'/%3E%3Cpath d='M0 30 H120 V25 H0 Z' fill='%234b4438'/%3E%3C/svg%3E"),
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 30 120' preserveAspectRatio='none'%3E%3Cpath d='M0 0 V120 H12 L22 110 L10 100 L24 90 L11 80 L21 70 L9 60 L23 50 L12 40 L20 30 L10 20 L19 10 L11 0 Z' fill='%233b362d'/%3E%3Cpath d='M0 0 V120 H5 V0 Z' fill='%234b4438'/%3E%3C/svg%3E"),
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 30 120' preserveAspectRatio='none'%3E%3Cpath d='M30 0 V120 H18 L8 110 L20 100 L6 90 L19 80 L9 70 L21 60 L7 50 L18 40 L10 30 L20 20 L11 10 L19 0 Z' fill='%233b362d'/%3E%3Cpath d='M30 0 V120 H25 V0 Z' fill='%234b4438'/%3E%3C/svg%3E");
 }
 /* Благословлён — тёплое золото и искры */
 .fx-bless{background:radial-gradient(circle at 50% 50%, transparent 55%, rgba(224,192,99,.28) 100%);
   animation:fx-in .5s var(--ease) both, fx-glow 4s ease-in-out infinite}
-.fx-bless::after{
-  content:''; position:absolute; inset:0; opacity:.55;
-  background:radial-gradient(2px 2px at 20% 30%, #f6e3a8, transparent 60%),
-             radial-gradient(2px 2px at 72% 22%, #f6e3a8, transparent 60%),
-             radial-gradient(2px 2px at 44% 76%, #f6e3a8, transparent 60%),
-             radial-gradient(1.5px 1.5px at 84% 64%, #f6e3a8, transparent 60%);
+.fx-bless::after{                 /* золотые искры-звёздочки */
+  content:''; position:absolute; inset:0; opacity:.75;
+  background-repeat:no-repeat;
+  background-position:18% 26%, 74% 20%, 42% 78%, 86% 62%, 8% 66%;
+  background-size:16px 16px, 12px 12px, 14px 14px, 10px 10px, 11px 11px;
+  background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20'%3E%3Cpath d='M10 0 C11 7 13 9 20 10 C13 11 11 13 10 20 C9 13 7 11 0 10 C7 9 9 7 10 0 Z' fill='%23f6e3a8'/%3E%3C/svg%3E"),
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20'%3E%3Cpath d='M10 0 C11 7 13 9 20 10 C13 11 11 13 10 20 C9 13 7 11 0 10 C7 9 9 7 10 0 Z' fill='%23f6e3a8'/%3E%3C/svg%3E"),
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20'%3E%3Cpath d='M10 0 C11 7 13 9 20 10 C13 11 11 13 10 20 C9 13 7 11 0 10 C7 9 9 7 10 0 Z' fill='%23f6e3a8'/%3E%3C/svg%3E"),
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20'%3E%3Cpath d='M10 0 C11 7 13 9 20 10 C13 11 11 13 10 20 C9 13 7 11 0 10 C7 9 9 7 10 0 Z' fill='%23f6e3a8'/%3E%3C/svg%3E"),
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20'%3E%3Cpath d='M10 0 C11 7 13 9 20 10 C13 11 11 13 10 20 C9 13 7 11 0 10 C7 9 9 7 10 0 Z' fill='%23f6e3a8'/%3E%3C/svg%3E");
   animation:fx-glow 3s ease-in-out infinite alternate;
 }
 @keyframes fx-glow{0%,100%{opacity:.5} 50%{opacity:1}}
@@ -456,8 +484,9 @@ em{color:var(--muted); font-style:normal; font-size:14px}
   display:flex; gap:var(--s2); flex-wrap:wrap; justify-content:center; max-width:90%;
 }
 .fx-label span{
-  font-size:14px; padding:var(--s1) var(--s3); border-radius:999px;
-  background:rgba(23,22,19,.85); border:1px solid var(--line); color:var(--text);
+  font-size:14px; padding:var(--s1) var(--s4); border-radius:999px; color:#f0e7d5;
+  background:linear-gradient(180deg, rgba(46,42,34,.94), rgba(23,22,19,.94));
+  border:1px solid var(--gold-dim); box-shadow:inset 0 1px 0 rgba(255,255,255,.06), 0 2px 10px rgba(0,0,0,.4);
 }
 @media (prefers-reduced-motion:reduce){
   .fx, .fx::after{animation-duration:.01ms !important; animation-iteration-count:1 !important}

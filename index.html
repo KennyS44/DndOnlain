@@ -11,6 +11,28 @@
 </head>
 <body>
 
+<!-- Общие рисованные фигуры: самоцвет вдохновения и трещины страха -->
+<svg class="svg-sprite" aria-hidden="true" focusable="false">
+  <defs>
+    <linearGradient id="gemTop" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#fff3cf"/><stop offset="1" stop-color="#d9b56a"/>
+    </linearGradient>
+    <linearGradient id="gemLeft" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#c9a45a"/><stop offset="1" stop-color="#7d6432"/>
+    </linearGradient>
+    <linearGradient id="gemRight" x1="1" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#e7cf94"/><stop offset="1" stop-color="#9c7f42"/>
+    </linearGradient>
+    <symbol id="gem-shape" viewBox="0 0 40 44">
+      <polygon points="20,1 33,12 27,15 13,15 7,12" fill="url(#gemTop)"/>
+      <polygon points="7,12 13,15 20,43 4,20" fill="url(#gemLeft)"/>
+      <polygon points="33,12 27,15 20,43 36,20" fill="url(#gemRight)"/>
+      <polygon points="13,15 27,15 20,43" fill="#f3e2b4" opacity=".9"/>
+      <path d="M20 1 L20 43 M7 12 L36 20 M33 12 L4 20" stroke="rgba(70,50,16,.35)" stroke-width=".8" fill="none"/>
+    </symbol>
+  </defs>
+</svg>
+
 <!-- ───────────────────────── Вход в комнату ───────────────────────── -->
 <div id="gate" class="gate">
   <div class="gate-card">
@@ -89,7 +111,7 @@
 
     <div class="topbar-right">
       <button class="gem-badge" id="gem-badge" hidden title="Ваше вдохновение">
-        <span class="gem" aria-hidden="true"></span><span class="gem-count" id="gem-count">0</span>
+        <span class="gem" aria-hidden="true"><svg class="gem-svg" viewBox="0 0 40 44"><use href="#gem-shape"/></svg></span><span class="gem-count" id="gem-count">0</span>
       </button>
       <button class="btn btn-ghost" id="btn-dice">Кубики</button>
       <button class="btn btn-ghost only-mobile" id="btn-panel">Панели</button>

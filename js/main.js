@@ -472,7 +472,7 @@ function renderHeroes(s) {
 
     const gems = el('div', 'hero-gems');
     if (app.isDM) gems.append(stepBtn('−', () => setInsp(m.key, n - 1)));
-    gems.append(el('span', 'gem'), el('span', 'n', String(n)));
+    gems.append(gemNode(n === 0), el('span', 'n', String(n)));
     if (app.isDM) gems.append(stepBtn('+', () => setInsp(m.key, n + 1)));
     row.append(gems);
     box.append(row);
@@ -494,6 +494,12 @@ function renderHeroes(s) {
     }
     gemShown = mine;
   }
+}
+/** Тот же гранёный камень, что и в верхней панели. */
+function gemNode(dim) {
+  const g = el('span', 'gem' + (dim ? ' is-dim' : ''));
+  g.innerHTML = '<svg class="gem-svg" viewBox="0 0 40 44"><use href="#gem-shape"/></svg>';
+  return g;
 }
 function stepBtn(label, onClick) {
   const b = el('button', 'hero-btn', label);

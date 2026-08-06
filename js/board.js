@@ -120,17 +120,23 @@ export function createBoard(opts) {
     if (ruler) drawRuler();
     if (drag && drag.type === 'fog') drawBrushCursor();
     if (tool === 'draw' && draw.shape === 'eraser' && hoverAt) {
+      const r = eraseSize * view.scale;
       ctx.save();
-      ctx.setLineDash([5, 5]); ctx.lineWidth = 2; ctx.strokeStyle = 'rgba(236,230,217,.85)';
-      ctx.beginPath(); ctx.arc(hoverAt.x, hoverAt.y, eraseSize * view.scale, 0, Math.PI * 2);
-      ctx.stroke(); ctx.restore();
+      const g = ctx.createRadialGradient(hoverAt.x, hoverAt.y, r * .35, hoverAt.x, hoverAt.y, r);
+      g.addColorStop(0, 'rgba(236,230,217,0)');
+      g.addColorStop(1, 'rgba(236,230,217,.16)');
+      ctx.fillStyle = g;
+      ctx.beginPath(); ctx.arc(hoverAt.x, hoverAt.y, r, 0, Math.PI * 2); ctx.fill();
+      ctx.setLineDash([6, 5]); ctx.lineWidth = 2; ctx.strokeStyle = 'rgba(236,230,217,.9)';
+      ctx.stroke();
+      ctx.setLineDash([]); ctx.strokeStyle = 'rgba(23,22,19,.6)'; ctx.lineWidth = 1;
+      ctx.beginPath(); ctx.arc(hoverAt.x, hoverAt.y, r + 1.5, 0, Math.PI * 2); ctx.stroke();
+      ctx.restore();
     }
     if (drag && drag.type === 'wall-new') {
       const a = w2s(drag.a.x, drag.a.y), b = w2s(drag.b.x, drag.b.y);
-      ctx.save();
-      ctx.strokeStyle = wallKind === 'door' ? '#e0a05a' : '#7fa8c9';
-      ctx.lineWidth = Math.max(3, 6 * view.scale); ctx.lineCap = 'round'; ctx.globalAlpha = .8;
-      ctx.beginPath(); ctx.moveTo(a.x, a.y); ctx.lineTo(b.x, b.y); ctx.stroke();
+      ctx.save(); ctx.globalAlpha = .75;
+      if (wallKind === 'door') drawDoor(a, b, false); else drawStoneWall(a, b, 7);
       ctx.restore();
     }
   }
@@ -352,19 +358,24 @@ export function createBoard(opts) {
     ctx.restore();
   }
 
-  /** Подпись на тёмной плашке — читается на любом рисунке и на любой карте. */
+  /** Подпись на плашке-табличке: тёмная кость с золотым кантом, читается везде. */
   function chip(text, x, y) {
     ctx.save();
     ctx.globalAlpha = 1;
     ctx.font = '14px Inter, sans-serif';
     ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
     const w = ctx.measureText(text).width;
-    ctx.fillStyle = 'rgba(23,22,19,.9)';
-    ctx.strokeStyle = '#38332b'; ctx.lineWidth = 1;
-    ctx.beginPath();
-    ctx.roundRect(x - w / 2 - 8, y - 13, w + 16, 26, 6);
-    ctx.fill(); ctx.stroke();
-    ctx.fillStyle = '#ece6d9';
+    const bx = x - w / 2 - 10, by = y - 13, bw = w + 20, bh = 26;
+    const g = ctx.createLinearGradient(0, by, 0, by + bh);
+    g.addColorStop(0, 'rgba(46,42,34,.96)');
+    g.addColorStop(1, 'rgba(23,22,19,.96)');
+    ctx.fillStyle = g;
+    ctx.beginPath(); ctx.roundRect(bx, by, bw, bh, 7); ctx.fill();
+    ctx.strokeStyle = 'rgba(201,164,90,.75)'; ctx.lineWidth = 1;
+    ctx.stroke();
+    ctx.strokeStyle = 'rgba(255,255,255,.08)';
+    ctx.beginPath(); ctx.roundRect(bx + 1.5, by + 1.5, bw - 3, bh - 3, 6); ctx.stroke();
+    ctx.fillStyle = '#f0e7d5';
     ctx.fillText(text, x, y);
     ctx.restore();
   }
@@ -379,10 +390,20 @@ export function createBoard(opts) {
     const cy = Math.floor((w.y - g.oy) / g.size) - half;
     const a = w2s(g.ox + cx * g.size, g.oy + cy * g.size);
     const side = n * g.size * view.scale;
+    const tone = drag.on ? '#83a05f' : '#b8604a';
     ctx.save();
-    ctx.strokeStyle = drag.on ? '#83a05f' : '#b8604a';
-    ctx.lineWidth = 2;
+    ctx.fillStyle = drag.on ? 'rgba(131,160,95,.14)' : 'rgba(184,96,74,.16)';
+    ctx.fillRect(a.x, a.y, side, side);
+    ctx.strokeStyle = tone; ctx.lineWidth = 2;
     ctx.strokeRect(a.x, a.y, side, side);
+    ctx.lineWidth = 3;                                  // уголки-засечки
+    const c = Math.min(10, side * .28);
+    [[0, 0, 1, 1], [side, 0, -1, 1], [0, side, 1, -1], [side, side, -1, -1]].forEach(([ox, oy, sx, sy]) => {
+      ctx.beginPath();
+      ctx.moveTo(a.x + ox, a.y + oy + sy * c); ctx.lineTo(a.x + ox, a.y + oy);
+      ctx.lineTo(a.x + ox + sx * c, a.y + oy);
+      ctx.stroke();
+    });
     ctx.restore();
   }
 
@@ -426,26 +447,97 @@ export function createBoard(opts) {
     return pts;
   }
 
+  /** Один и тот же «случайный» скол у камня при каждой отрисовке. */
+  function jitter(seed, i) {
+    const v = Math.sin(seed * 12.9898 + i * 78.233) * 43758.5453;
+    return v - Math.floor(v) - 0.5;
+  }
+
+  /** Кладка: блоки со швами, светлая верхняя грань, тёмная нижняя. */
+  function drawStoneWall(a, b, seed) {
+    const len = Math.hypot(b.x - a.x, b.y - a.y);
+    if (len < 1) return;
+    const ang = Math.atan2(b.y - a.y, b.x - a.x);
+    const th = Math.max(5, 9 * view.scale);           // толщина кладки
+    const block = Math.max(14, 26 * view.scale);
+    ctx.save();
+    ctx.translate(a.x, a.y); ctx.rotate(ang);
+
+    ctx.fillStyle = '#2f3138';                        // раствор между камнями
+    ctx.fillRect(0, -th / 2 - 1, len, th + 2);
+
+    const n = Math.max(1, Math.round(len / block));
+    for (let i = 0; i < n; i++) {
+      const x0 = (len / n) * i + 1;
+      const w = (len / n) - 2;
+      const up = jitter(seed, i) * th * 0.18;
+      const g = ctx.createLinearGradient(0, -th / 2, 0, th / 2);
+      const tone = 108 + Math.round(jitter(seed, i + 99) * 26);
+      g.addColorStop(0, `rgb(${tone + 26},${tone + 30},${tone + 38})`);
+      g.addColorStop(.55, `rgb(${tone - 6},${tone - 2},${tone + 6})`);
+      g.addColorStop(1, `rgb(${tone - 34},${tone - 32},${tone - 24})`);
+      ctx.fillStyle = g;
+      ctx.beginPath();
+      ctx.roundRect(x0, -th / 2 + up, w, th - Math.abs(up), Math.min(3, th * .25));
+      ctx.fill();
+    }
+    ctx.strokeStyle = 'rgba(20,19,16,.75)'; ctx.lineWidth = 1;
+    ctx.strokeRect(0, -th / 2, len, th);
+    ctx.restore();
+  }
+
+  /** Дверь: доски, железные полосы, кольцо-ручка. Открытая — отведена в сторону. */
+  function drawDoor(a, b, open) {
+    const full = Math.hypot(b.x - a.x, b.y - a.y);
+    if (full < 1) return;
+    const ang0 = Math.atan2(b.y - a.y, b.x - a.x);
+    const ang = open ? ang0 - Math.PI / 3 : ang0;     // приоткрыта на 60°
+    const th = Math.max(6, 11 * view.scale);
+    ctx.save();
+    if (open) {                                       // проём остаётся отмеченным
+      ctx.setLineDash([4, 6]); ctx.lineWidth = 1.5;
+      ctx.strokeStyle = 'rgba(224,192,99,.45)';
+      ctx.beginPath(); ctx.moveTo(a.x, a.y); ctx.lineTo(b.x, b.y); ctx.stroke();
+      ctx.setLineDash([]);
+    }
+    ctx.translate(a.x, a.y); ctx.rotate(ang);
+    ctx.globalAlpha = open ? .9 : 1;
+
+    const g = ctx.createLinearGradient(0, -th / 2, 0, th / 2);
+    g.addColorStop(0, '#8a5a32'); g.addColorStop(.5, '#6b431f'); g.addColorStop(1, '#4a2d14');
+    ctx.fillStyle = g;
+    ctx.beginPath(); ctx.roundRect(0, -th / 2, full, th, 2); ctx.fill();
+
+    ctx.strokeStyle = 'rgba(40,24,10,.7)'; ctx.lineWidth = 1;   // стыки досок
+    for (let x = full / 5; x < full - 1; x += full / 5) {
+      ctx.beginPath(); ctx.moveTo(x, -th / 2 + 1); ctx.lineTo(x, th / 2 - 1); ctx.stroke();
+    }
+    ctx.fillStyle = '#3c3f46';                                   // железные полосы
+    [full * .18, full * .74].forEach((x) => ctx.fillRect(x, -th / 2, Math.max(2, 3 * view.scale), th));
+    ctx.strokeStyle = '#241a10'; ctx.lineWidth = 1.5;
+    ctx.strokeRect(0, -th / 2, full, th);
+
+    ctx.beginPath();                                             // кольцо-ручка
+    ctx.arc(full * .9, 0, Math.max(2, th * .22), 0, Math.PI * 2);
+    ctx.strokeStyle = '#c9a45a'; ctx.lineWidth = Math.max(1.5, th * .1); ctx.stroke();
+    ctx.restore();
+  }
+
   /** Стены видит только Мастер: игрокам они просто обрезают обзор. */
   function drawWalls() {
     if (!isDM) return;
     const list = wallsOf();
     if (!list.length) return;
     ctx.save();
-    list.forEach((w) => {
+    list.forEach((w, idx) => {
       const a = w2s(w.x1, w.y1), b = w2s(w.x2, w.y2);
-      const isDoor = w.type === 'door';
-      ctx.lineCap = 'round';
-      ctx.lineWidth = Math.max(3, 6 * view.scale);
-      ctx.setLineDash(isDoor && w.open ? [6, 8] : []);
-      ctx.strokeStyle = isDoor ? (w.open ? 'rgba(224,192,99,.5)' : '#e0a05a') : 'rgba(127,168,201,.85)';
-      ctx.beginPath(); ctx.moveTo(a.x, a.y); ctx.lineTo(b.x, b.y); ctx.stroke();
-      ctx.setLineDash([]);
+      if (w.type === 'door') drawDoor(a, b, w.open);
+      else drawStoneWall(a, b, (w.id || '').length + idx + Math.abs(w.x1 % 97));
       if (tool === 'wall') {                       // ручки для перетаскивания
         [a, b].forEach((p) => {
           ctx.beginPath(); ctx.arc(p.x, p.y, 5, 0, Math.PI * 2);
           ctx.fillStyle = '#171613'; ctx.fill();
-          ctx.lineWidth = 2; ctx.strokeStyle = isDoor ? '#e0a05a' : '#7fa8c9'; ctx.stroke();
+          ctx.lineWidth = 2; ctx.strokeStyle = w.type === 'door' ? '#e0a05a' : '#8fa3c9'; ctx.stroke();
         });
       }
     });
@@ -554,6 +646,14 @@ export function createBoard(opts) {
         drag = { type: 'token', id: t.id, dx: t.x - w.x, dy: t.y - w.y, moved: false };
         return;
       }
+      // дверь открывается кликом в любом режиме, не только при черчении стен
+      if (!t && isDM) {
+        const hitW = wallAt(w);
+        if (hitW && hitW.wall.type === 'door') {
+          drag = { type: 'door-tap', id: hitW.wall.id, open: hitW.wall.open, from: p };
+          return;
+        }
+      }
       if (t || tool === 'token') { drag = { type: 'tap', at: p, id: t && t.id }; return; }
     }
     if (tool === 'ruler' && !mid) {
@@ -605,6 +705,11 @@ export function createBoard(opts) {
       if (tool === 'draw' && draw.shape === 'eraser') { hoverAt = p; render(); return; }
       const t = (tool === 'select' || tool === 'token') ? tokenAt(w.x, w.y) : null;
       const id = t ? t.id : null;
+      // подсказка курсором: под мышкой дверь, её можно открыть
+      if (isDM && !t && (tool === 'select' || tool === 'token')) {
+        const hw = wallAt(w);
+        canvas.classList.toggle('on-door', !!(hw && hw.wall.type === 'door'));
+      }
       if (id !== hoverId) { hoverId = id; render(); }
       return;
     }
@@ -684,6 +789,11 @@ export function createBoard(opts) {
       // короткий клик по двери без перетаскивания — открыть или закрыть её
       if (!drag.moved && drag.start.type === 'door') {
         store.dispatch({ t: 'wall.update', locId: loc().id, id: drag.id, patch: { open: !drag.start.open } });
+      }
+    } else if (drag.type === 'door-tap') {
+      const p = evPos(e);
+      if (Math.hypot(p.x - drag.from.x, p.y - drag.from.y) < 6) {
+        store.dispatch({ t: 'wall.update', locId: loc().id, id: drag.id, patch: { open: !drag.open } });
       }
     } else if (drag.type === 'tap') {
       const t = drag.id && S().tokens[drag.id];
