@@ -409,21 +409,40 @@ em{color:var(--muted); font-style:normal; font-size:14px}
 .fx-down{background:radial-gradient(120% 18% at 50% 50%, rgba(0,0,0,.35) 0 40%, rgba(0,0,0,.985) 78%);
   animation:fx-in .5s var(--ease) both, fx-pulse 2.6s ease-in-out infinite}
 @keyframes fx-pulse{0%,100%{opacity:1} 50%{opacity:.88}}
-/* Испуган — темнота и трещины по краям */
-.fx-fear{background:radial-gradient(circle at 50% 50%, transparent 34%, rgba(4,3,6,.9) 92%);
-  animation:fx-in .5s var(--ease) both, fx-shake 5s ease-in-out infinite}
+/* Испуган — багровая пелена, трещины по краям и крупная дрожь */
+.fx-fear{
+  background:
+    radial-gradient(circle at 50% 50%, rgba(120,14,16,0) 32%, rgba(96,10,12,.34) 62%, rgba(46,4,6,.92) 98%),
+    linear-gradient(0deg, rgba(120,18,18,.1), rgba(120,18,18,.1));
+  animation:fx-in .5s var(--ease) both, fx-shake 1.4s ease-in-out infinite;
+}
+.fx-fear::before{               /* толчки крови в висках: багрянец наплывает и отступает */
+  content:''; position:absolute; inset:0;
+  background:radial-gradient(circle at 50% 50%, transparent 46%, rgba(146,18,20,.42) 100%);
+  animation:fx-throb 1.9s ease-in-out infinite;
+}
+@keyframes fx-throb{0%,100%{opacity:.25} 46%{opacity:.75}}
 .fx-fear::after{                /* рисованные трещины от углов, ветвятся внутрь */
   content:''; position:absolute; inset:0; opacity:.9;
   background-repeat:no-repeat;
   background-position:left top, right top, left bottom, right bottom;
   background-size:58% 64%, 50% 58%, 54% 56%, 48% 52%;
   background-image:
-    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100' preserveAspectRatio='none'%3E%3Cg fill='none' stroke='%23dfe4f2' stroke-opacity='.5' stroke-width='.45' stroke-linecap='round'%3E%3Cpath d='M0 0 L27 21 L21 34 L40 47 L34 63 L54 79'/%3E%3Cpath d='M27 21 L45 15 M21 34 L7 41 M40 47 L56 41 M34 63 L19 71' stroke-width='.25'/%3E%3C/g%3E%3C/svg%3E"),
-    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100' preserveAspectRatio='none'%3E%3Cg fill='none' stroke='%23dfe4f2' stroke-opacity='.44' stroke-width='.45' stroke-linecap='round'%3E%3Cpath d='M100 0 L73 19 L81 33 L61 45 L69 61 L47 75'/%3E%3Cpath d='M73 19 L57 11 M81 33 L96 43 M61 45 L45 39 M69 61 L85 69' stroke-width='.25'/%3E%3C/g%3E%3C/svg%3E"),
-    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100' preserveAspectRatio='none'%3E%3Cg fill='none' stroke='%23dfe4f2' stroke-opacity='.38' stroke-width='.45' stroke-linecap='round'%3E%3Cpath d='M0 100 L25 77 L19 63 L41 51 L35 35 L57 21'/%3E%3Cpath d='M25 77 L41 87 M19 63 L5 55 M41 51 L57 61 M35 35 L21 27' stroke-width='.25'/%3E%3C/g%3E%3C/svg%3E"),
-    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100' preserveAspectRatio='none'%3E%3Cg fill='none' stroke='%23dfe4f2' stroke-opacity='.34' stroke-width='.45' stroke-linecap='round'%3E%3Cpath d='M100 100 L75 79 L83 65 L63 53 L71 37 L49 23'/%3E%3Cpath d='M75 79 L59 89 M83 65 L97 57 M63 53 L47 61 M71 37 L87 29' stroke-width='.25'/%3E%3C/g%3E%3C/svg%3E");
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100' preserveAspectRatio='none'%3E%3Cg fill='none' stroke='%23ffe0d6' stroke-opacity='.5' stroke-width='.45' stroke-linecap='round'%3E%3Cpath d='M0 0 L27 21 L21 34 L40 47 L34 63 L54 79'/%3E%3Cpath d='M27 21 L45 15 M21 34 L7 41 M40 47 L56 41 M34 63 L19 71' stroke-width='.25'/%3E%3C/g%3E%3C/svg%3E"),
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100' preserveAspectRatio='none'%3E%3Cg fill='none' stroke='%23ffe0d6' stroke-opacity='.44' stroke-width='.45' stroke-linecap='round'%3E%3Cpath d='M100 0 L73 19 L81 33 L61 45 L69 61 L47 75'/%3E%3Cpath d='M73 19 L57 11 M81 33 L96 43 M61 45 L45 39 M69 61 L85 69' stroke-width='.25'/%3E%3C/g%3E%3C/svg%3E"),
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100' preserveAspectRatio='none'%3E%3Cg fill='none' stroke='%23ffe0d6' stroke-opacity='.38' stroke-width='.45' stroke-linecap='round'%3E%3Cpath d='M0 100 L25 77 L19 63 L41 51 L35 35 L57 21'/%3E%3Cpath d='M25 77 L41 87 M19 63 L5 55 M41 51 L57 61 M35 35 L21 27' stroke-width='.25'/%3E%3C/g%3E%3C/svg%3E"),
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100' preserveAspectRatio='none'%3E%3Cg fill='none' stroke='%23ffe0d6' stroke-opacity='.34' stroke-width='.45' stroke-linecap='round'%3E%3Cpath d='M100 100 L75 79 L83 65 L63 53 L71 37 L49 23'/%3E%3Cpath d='M75 79 L59 89 M83 65 L97 57 M63 53 L47 61 M71 37 L87 29' stroke-width='.25'/%3E%3C/g%3E%3C/svg%3E");
 }
-@keyframes fx-shake{0%,92%,100%{transform:translate(0,0)} 94%{transform:translate(-3px,2px)} 96%{transform:translate(3px,-2px)} 98%{transform:translate(-2px,-1px)}}
+@keyframes fx-shake{
+  0%,100%{transform:translate(0,0) rotate(0)}
+  9%{transform:translate(-7px,4px) rotate(-.55deg)}
+  20%{transform:translate(6px,-5px) rotate(.5deg)}
+  33%{transform:translate(-5px,-4px) rotate(-.35deg)}
+  46%{transform:translate(7px,3px) rotate(.45deg)}
+  60%{transform:translate(-4px,5px) rotate(-.3deg)}
+  74%{transform:translate(5px,-3px) rotate(.35deg)}
+  88%{transform:translate(-3px,2px) rotate(-.2deg)}
+}
 /* Отравлен — зелёная дымка и медленная волна */
 .fx-poison{background:radial-gradient(circle at 50% 55%, rgba(90,150,70,.16) 20%, rgba(52,96,44,.62) 95%);
   backdrop-filter:hue-rotate(38deg) saturate(1.25) blur(.6px);
