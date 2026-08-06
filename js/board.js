@@ -136,7 +136,7 @@ export function createBoard(opts) {
     if (drag && drag.type === 'wall-new') {
       const a = w2s(drag.a.x, drag.a.y), b = w2s(drag.b.x, drag.b.y);
       ctx.save(); ctx.globalAlpha = .75;
-      if (wallKind === 'door') drawDoor(a, b, false); else drawStoneWall(a, b, 7);
+      if (wallKind === 'door') drawDoor(a, b, false); else drawStoneWall(a, b);
       ctx.restore();
     }
   }
@@ -447,42 +447,13 @@ export function createBoard(opts) {
     return pts;
   }
 
-  /** Один и тот же «случайный» скол у камня при каждой отрисовке. */
-  function jitter(seed, i) {
-    const v = Math.sin(seed * 12.9898 + i * 78.233) * 43758.5453;
-    return v - Math.floor(v) - 0.5;
-  }
-
-  /** Кладка: блоки со швами, светлая верхняя грань, тёмная нижняя. */
-  function drawStoneWall(a, b, seed) {
-    const len = Math.hypot(b.x - a.x, b.y - a.y);
-    if (len < 1) return;
-    const ang = Math.atan2(b.y - a.y, b.x - a.x);
-    const th = Math.max(5, 9 * view.scale);           // толщина кладки
-    const block = Math.max(14, 26 * view.scale);
+  /** Стена — простая линия: она служебная и не должна спорить с картой. */
+  function drawStoneWall(a, b) {
     ctx.save();
-    ctx.translate(a.x, a.y); ctx.rotate(ang);
-
-    ctx.fillStyle = '#2f3138';                        // раствор между камнями
-    ctx.fillRect(0, -th / 2 - 1, len, th + 2);
-
-    const n = Math.max(1, Math.round(len / block));
-    for (let i = 0; i < n; i++) {
-      const x0 = (len / n) * i + 1;
-      const w = (len / n) - 2;
-      const up = jitter(seed, i) * th * 0.18;
-      const g = ctx.createLinearGradient(0, -th / 2, 0, th / 2);
-      const tone = 108 + Math.round(jitter(seed, i + 99) * 26);
-      g.addColorStop(0, `rgb(${tone + 26},${tone + 30},${tone + 38})`);
-      g.addColorStop(.55, `rgb(${tone - 6},${tone - 2},${tone + 6})`);
-      g.addColorStop(1, `rgb(${tone - 34},${tone - 32},${tone - 24})`);
-      ctx.fillStyle = g;
-      ctx.beginPath();
-      ctx.roundRect(x0, -th / 2 + up, w, th - Math.abs(up), Math.min(3, th * .25));
-      ctx.fill();
-    }
-    ctx.strokeStyle = 'rgba(20,19,16,.75)'; ctx.lineWidth = 1;
-    ctx.strokeRect(0, -th / 2, len, th);
+    ctx.lineCap = 'round';
+    ctx.lineWidth = Math.max(3, 6 * view.scale);
+    ctx.strokeStyle = 'rgba(127,168,201,.85)';
+    ctx.beginPath(); ctx.moveTo(a.x, a.y); ctx.lineTo(b.x, b.y); ctx.stroke();
     ctx.restore();
   }
 
@@ -491,7 +462,7 @@ export function createBoard(opts) {
     const full = Math.hypot(b.x - a.x, b.y - a.y);
     if (full < 1) return;
     const ang0 = Math.atan2(b.y - a.y, b.x - a.x);
-    const ang = open ? ang0 - Math.PI / 3 : ang0;     // приоткрыта на 60°
+    const ang = open ? ang0 - (160 * Math.PI) / 180 : ang0;   // распахнута на 160°
     const th = Math.max(6, 11 * view.scale);
     ctx.save();
     if (open) {                                       // проём остаётся отмеченным
@@ -529,10 +500,10 @@ export function createBoard(opts) {
     const list = wallsOf();
     if (!list.length) return;
     ctx.save();
-    list.forEach((w, idx) => {
+    list.forEach((w) => {
       const a = w2s(w.x1, w.y1), b = w2s(w.x2, w.y2);
       if (w.type === 'door') drawDoor(a, b, w.open);
-      else drawStoneWall(a, b, (w.id || '').length + idx + Math.abs(w.x1 % 97));
+      else drawStoneWall(a, b);
       if (tool === 'wall') {                       // ручки для перетаскивания
         [a, b].forEach((p) => {
           ctx.beginPath(); ctx.arc(p.x, p.y, 5, 0, Math.PI * 2);
