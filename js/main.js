@@ -13,7 +13,7 @@ const COLORS = ['#c9a45a', '#ece6d9', '#b8604a', '#83a05f', '#7fa8c9', '#a678b8'
 const SHAPES = [
   { id: 'pen', label: 'Перо' }, { id: 'marker', label: 'Маркер' }, { id: 'line', label: 'Линия' },
   { id: 'arrow', label: 'Стрелка' }, { id: 'rect', label: 'Прямоуг.' }, { id: 'circle', label: 'Круг' },
-  { id: 'cone', label: 'Конус' },
+  { id: 'cone', label: 'Конус' }, { id: 'eraser', label: 'Ластик' },
 ];
 
 const app = {};   // me, sync, store, board, isDM
@@ -273,7 +273,7 @@ function renderAll(s, action) {
 }
 function setVal(sel, v) { const el = $(sel); if (el && document.activeElement !== el) el.value = v; }
 
-const BOARD_ONLY = new Set(['token.update', 'fog.paint', 'draw.add', 'draw.clear', 'wall.add', 'wall.update', 'wall.remove']);
+const BOARD_ONLY = new Set(['token.update', 'fog.paint', 'draw.add', 'draw.clear', 'draw.erase', 'wall.add', 'wall.update', 'wall.remove']);
 /** Правки, которые видны и в панелях (хиты, имя, владелец) — там нужна полная перерисовка. */
 function touchesPanels(a) {
   if (a.t !== 'token.update') return false;
@@ -781,13 +781,17 @@ function wireUI() {
   SHAPES.forEach((sh, i) => {
     const b = el('button', 'shape' + (i === 0 ? ' is-active' : ''), sh.label);
     b.addEventListener('click', () => {
-      $$('.shape').forEach((x) => x.classList.remove('is-active'));
+      $$('#draw-shapes .shape').forEach((x) => x.classList.remove('is-active'));
       b.classList.add('is-active');
       app.board.setDraw({ shape: sh.id });
+      // у ластика свой размер — он заметно крупнее кисти
+      $('#draw-width-row').hidden = sh.id === 'eraser';
+      $('#erase-size-row').hidden = sh.id !== 'eraser';
     });
     shapeBox.append(b);
   });
   $('#draw-width').addEventListener('input', (e) => app.board.setDraw({ width: Number(e.target.value) }));
+  $('#erase-size').addEventListener('input', (e) => app.board.setEraseSize(Number(e.target.value)));
   $('#draw-clear').addEventListener('click', () => {
     const s = app.store.get();
     if (s.activeLoc) app.store.dispatch({ t: 'draw.clear', locId: s.activeLoc, by: app.isDM ? null : app.me.id });

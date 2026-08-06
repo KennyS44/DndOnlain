@@ -204,6 +204,14 @@ export function reduce(s, a) {
       s.locations = { ...s.locations, [a.locId]: { ...loc, drawings: [...loc.drawings, a.stroke] } };
       break;
     }
+    // Ластик: часть линий исчезает, обрубки возвращаются новыми кусками.
+    case 'draw.erase': {
+      const loc = s.locations[a.locId]; if (!loc) break;
+      const gone = new Set(a.remove || []);
+      const keep = (loc.drawings || []).filter((d) => !gone.has(d.id));
+      s.locations = { ...s.locations, [a.locId]: { ...loc, drawings: [...keep, ...(a.add || [])] } };
+      break;
+    }
     case 'draw.clear': {
       const loc = s.locations[a.locId]; if (!loc) break;
       const keep = a.by ? loc.drawings.filter((d) => d.by !== a.by) : [];

@@ -13,6 +13,9 @@ export function createBoard(opts) {
   let fogBrush = 1;
   let fogMode = 'reveal';       // 'reveal' — открывает местность, 'hide' — возвращает туман
   let wallKind = 'wall';        // что чертим: 'wall' — стена, 'door' — дверь
+  let eraseSize = 40;           // радиус ластика в пикселях карты — заметно крупнее кисти
+  let eraseWork = null;         // что останется от рисунков, пока ластик ведут
+  let hoverAt = null;           // где курсор: для круга ластика
   const visionCache = new Map();
 
   // временные состояния взаимодействия
@@ -109,13 +112,19 @@ export function createBoard(opts) {
 
     const bounds = mapBounds();
     if (l.grid.show) drawGrid(W, H, bounds);
-    drawStrokes(l.drawings || []);
+    drawStrokes(eraseWork || l.drawings || []);   // под ластиком показываем, что останется
     if (preview) drawStroke(preview, true);
     drawTokens();
     if (l.fogOn) drawFog(W, H, bounds);
     drawWalls();
     if (ruler) drawRuler();
     if (drag && drag.type === 'fog') drawBrushCursor();
+    if (tool === 'draw' && draw.shape === 'eraser' && hoverAt) {
+      ctx.save();
+      ctx.setLineDash([5, 5]); ctx.lineWidth = 2; ctx.strokeStyle = 'rgba(236,230,217,.85)';
+      ctx.beginPath(); ctx.arc(hoverAt.x, hoverAt.y, eraseSize * view.scale, 0, Math.PI * 2);
+      ctx.stroke(); ctx.restore();
+    }
     if (drag && drag.type === 'wall-new') {
       const a = w2s(drag.a.x, drag.a.y), b = w2s(drag.b.x, drag.b.y);
       ctx.save();
@@ -221,6 +230,54 @@ export function createBoard(opts) {
   }
 
   function drawStrokes(list) { list.forEach((d) => drawStroke(d, false)); }
+
+  /* ── Ластик: стирает куски линий, а фигуры — целиком ─────────── */
+
+  const fragId = () => 'd' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
+
+  /** Задел ли ластик фигуру (для тех, что нельзя разрезать пополам). */
+  function shapeTouched(d, w, r) {
+    if (d.pts.length < 2) return false;
+    const [a, b] = d.pts;
+    if (distToSeg(w, { x1: a.x, y1: a.y, x2: b.x, y2: b.y }) <= r) return true;
+    if (d.shape === 'circle' || d.shape === 'cone') {
+      const rad = Math.hypot(b.x - a.x, b.y - a.y);
+      const dist = Math.hypot(w.x - a.x, w.y - a.y);
+      if (Math.abs(dist - rad) <= r) return true;         // задели дугу
+    }
+    if (d.shape === 'rect') {
+      const edges = [
+        { x1: a.x, y1: a.y, x2: b.x, y2: a.y }, { x1: b.x, y1: a.y, x2: b.x, y2: b.y },
+        { x1: b.x, y1: b.y, x2: a.x, y2: b.y }, { x1: a.x, y1: b.y, x2: a.x, y2: a.y },
+      ];
+      if (edges.some((e) => distToSeg(w, e) <= r)) return true;
+    }
+    return false;
+  }
+
+  /** Проводим ластиком: линии рвутся на куски, куски короче двух точек пропадают. */
+  function eraseStep(w) {
+    const r = eraseSize;
+    const next = [];
+    eraseWork.forEach((d) => {
+      if (d.shape === 'pen' || d.shape === 'marker') {
+        let run = [];
+        const parts = [];
+        d.pts.forEach((p) => {
+          if (Math.hypot(p.x - w.x, p.y - w.y) <= r) {
+            if (run.length >= 2) parts.push(run);
+            run = [];
+          } else run.push(p);
+        });
+        if (run.length >= 2) parts.push(run);
+        if (parts.length === 1 && parts[0].length === d.pts.length) next.push(d);   // не задели
+        else parts.forEach((pts) => next.push({ ...d, id: fragId(), pts }));
+      } else if (!shapeTouched(d, w, r)) {
+        next.push(d);
+      }
+    });
+    eraseWork = next;
+  }
 
   function drawStroke(d, isPreview) {
     ctx.save();
@@ -503,6 +560,11 @@ export function createBoard(opts) {
       ruler = { a: w, b: w };
       drag = { type: 'ruler' }; render(); return;
     }
+    if (tool === 'draw' && draw.shape === 'eraser' && !mid) {
+      eraseWork = (loc().drawings || []).slice();
+      drag = { type: 'erase' };
+      eraseStep(w); render(); return;
+    }
     if (tool === 'draw' && !mid) {
       preview = { id: 'tmp', by: me.id, shape: draw.shape, color: draw.color, width: draw.width, pts: [w] };
       drag = { type: 'draw' }; render(); return;
@@ -540,6 +602,7 @@ export function createBoard(opts) {
     const w = s2w(p.x, p.y);
 
     if (!drag) {
+      if (tool === 'draw' && draw.shape === 'eraser') { hoverAt = p; render(); return; }
       const t = (tool === 'select' || tool === 'token') ? tokenAt(w.x, w.y) : null;
       const id = t ? t.id : null;
       if (id !== hoverId) { hoverId = id; render(); }
@@ -569,6 +632,10 @@ export function createBoard(opts) {
     } else if (drag.type === 'draw') {
       if (preview.shape === 'pen' || preview.shape === 'marker') preview.pts.push(w);
       else preview.pts[1] = w;
+      render();
+    } else if (drag.type === 'erase') {
+      hoverAt = p;
+      eraseStep(w);
       render();
     } else if (drag.type === 'fog') {
       drag.last = p;
@@ -626,6 +693,14 @@ export function createBoard(opts) {
         store.dispatch({ t: 'draw.add', locId: loc().id, stroke: { ...preview, id: 'd' + Date.now() + Math.random().toString(36).slice(2, 5) } });
       }
       preview = null;
+    } else if (drag.type === 'erase' && eraseWork) {
+      const before = loc().drawings || [];
+      const stayed = new Set(eraseWork.map((d) => d.id));
+      const remove = before.filter((d) => !stayed.has(d.id)).map((d) => d.id);
+      const had = new Set(before.map((d) => d.id));
+      const add = eraseWork.filter((d) => !had.has(d.id));
+      if (remove.length) store.dispatch({ t: 'draw.erase', locId: loc().id, remove, add });
+      eraseWork = null;
     } else if (drag.type === 'fog' && fogBatch) {
       if (fogBatch.cells.size) {
         store.dispatch({ t: 'fog.paint', locId: loc().id, cells: [...fogBatch.cells], on: fogBatch.on });
@@ -709,7 +784,9 @@ export function createBoard(opts) {
       canvas.className = t === 'select' ? '' : 'is-' + t;
       render();
     },
-    setDraw(patch) { Object.assign(draw, patch); },
+    setDraw(patch) { Object.assign(draw, patch); if (patch.shape) { hoverAt = null; render(); } },
+    setEraseSize(n) { eraseSize = Math.max(10, n); render(); },
+    eraseSize: () => eraseSize,
     setFogBrush(n) { fogBrush = Math.max(1, n); },
     setFogMode(m) { fogMode = m; },
     setWallKind(k) { wallKind = k; },
